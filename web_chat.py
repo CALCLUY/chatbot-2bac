@@ -132,6 +132,23 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain")
 
     # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def _explain_chat_error(exc: ChatError) -> str:
+        """Turn a connection failure into something actionable."""
+        reach = api_reachable()
+        if reach["checked"] and not reach["ok"]:
+            return (
+                "Impossible de joindre l'API depuis CET environnement : "
+                f"{reach['detail']}\n\n"
+                "Ce serveur de preview tourne dans un sandbox dont la sortie réseau est "
+                "limitée (seuls pypi/npm/github passent). Ce n'est pas ta clé ni ton endpoint.\n"
+                "Pour de vraies réponses : clone le dépôt et lance `python web_chat.py` "
+                "sur ta machine — là, l'API répondra et ce message disparaîtra.\n"
+                "En attendant, bascule sur « Mock » pour tester l'interface."
+            )
+        return str(exc)
+
     def do_POST(self):                                       # noqa: N802
         if not self.path.startswith("/api/chat"):
             self._send_json(404, {"error": "not found"})
@@ -177,7 +194,7 @@ class Handler(BaseHTTPRequestHandler):
                 SESSION.history.append({"role": "user", "content": message})
                 SESSION.history.append({"role": "assistant", "content": answer})
             except ChatError as exc:
-                answer, error = "", str(exc)
+                answer, error = "", self._explain_chat_error(exc)
 
         self._send_json(200, {
             "answer": answer,

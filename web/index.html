@@ -103,10 +103,17 @@ fetch('/api/health').then(r => r.json()).then(h => {
     banner.style.display = 'block';
     banner.textContent = 'CHAT_API_KEY non configurée — mode Mock actif (aucun vrai modèle appelé).';
   } else if (h.checked && !h.ok) {
-    document.getElementById('backend').value = 'mock';
+    const sel = document.getElementById('backend');
+    sel.value = 'mock';
+    // Grey out the real API so it cannot be picked by mistake: from this
+    // environment it can only ever fail.
+    Array.from(sel.options).forEach(o => { if (o.value === 'real') o.disabled = true; });
     banner.style.display = 'block';
-    banner.textContent = 'API injoignable depuis cet environnement (' + h.detail +
-      ') — mode Mock actif pour que tu puisses tester l’interface. Les réponses mock ne reflètent pas la qualité pédagogique.';
+    banner.innerHTML = '<strong>API injoignable depuis ce sandbox</strong> (' + escapeHtml(h.detail) +
+      '). Le mode « API réelle » est désactivé : la sortie réseau de ce serveur est limitée à pypi/npm/github, ' +
+      'donc aucun endpoint ne répondra ici — ce n\'est ni ta clé ni ton endpoint.<br>' +
+      'Pour de vraies réponses, lance <code>python web_chat.py</code> <strong>sur ta machine</strong> ' +
+      '(<code>git pull</code> d\'abord). En attendant, « Mock » te laisse tester l\'interface et la récupération de sources.';
   }
 }).catch(() => { metaEl.textContent = 'api indisponible'; });
 
