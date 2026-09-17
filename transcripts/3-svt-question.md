@@ -2,7 +2,7 @@
 
 - **Scénario** : `3-svt-question`
 - **Objectif** : Expliquer la méiose et la réduction chromatique, en restant dans le programme.
-- **Généré le** : 2026-09-17T02:12:41
+- **Généré le** : 2026-09-17T18:10:41
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = SVT, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError

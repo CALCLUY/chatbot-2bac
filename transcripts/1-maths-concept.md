@@ -2,7 +2,7 @@
 
 - **Scénario** : `1-maths-concept`
 - **Objectif** : Expliquer un concept du programme : la limite d'une fonction en un point.
-- **Généré le** : 2026-09-17T02:12:25
+- **Généré le** : 2026-09-17T18:10:24
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = Mathématiques, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError

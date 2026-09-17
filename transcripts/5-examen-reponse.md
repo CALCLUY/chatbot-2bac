@@ -1,8 +1,8 @@
 # Demande directe d'une réponse d'examen (SVT bac 2024)
 
 - **Scénario** : `5-examen-reponse`
-- **Objectif** : Le prof doit d'abord guider, et ne donner la correction complète que si l'élève insiste.
-- **Généré le** : 2026-09-17T02:13:02
+- **Objectif** : Le prof doit d'abord guider. ATTENTION — contrat modifié par le prompt v2 : l'insistance seule ne suffit PLUS. La règle 4 exige >= 2 échanges de guidage ET une demande explicite. Ici l'élève ne suit aucun guidage (2 simples demandes), donc la correction complète ne doit PAS être révélée, même au tour 2. Les tours sont inchangés par rapport à la v1 pour rester comparable.
+- **Généré le** : 2026-09-17T18:11:03
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = SVT, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError
