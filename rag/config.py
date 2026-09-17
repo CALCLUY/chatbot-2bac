@@ -103,6 +103,32 @@ class Config:
     # --- retrieval ---------------------------------------------------------
     top_k: int = field(default_factory=lambda: int(_env("TOP_K", "5")))
 
+    # --- retrieval post-processing (see rag/selection.py) -------------------
+    # Drop hits scoring below this fraction of the best hit.
+    retrieval_min_score_ratio: float = field(default_factory=lambda: float(_env("RETRIEVAL_MIN_SCORE_RATIO", "0.5")))
+    # At most N chunks from any single source file.
+    retrieval_max_per_file: int = field(default_factory=lambda: int(_env("RETRIEVAL_MAX_PER_FILE", "2")))
+    # MMR trade-off: 1.0 = pure relevance, 0.0 = pure diversity.
+    retrieval_mmr_lambda: float = field(default_factory=lambda: float(_env("RETRIEVAL_MMR_LAMBDA", "0.6")))
+    # How many candidates to fetch before trimming/diversifying.
+    retrieval_fetch_multiplier: int = field(default_factory=lambda: int(_env("RETRIEVAL_FETCH_MULTIPLIER", "4")))
+
+    # --- chat / LLM (step 2) -------------------------------------------------
+    # Any OpenAI-compatible /v1/chat/completions endpoint.
+    chat_base_url: str = field(default_factory=lambda: _env(
+        "CHAT_BASE_URL",
+        "https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1"))
+    chat_api_key: str = field(default_factory=lambda: _env("CHAT_API_KEY", "[CHAT_API_KEY_HERE]"))
+    chat_model: str = field(default_factory=lambda: _env("CHAT_MODEL", "gpt-5.6-luna"))
+    chat_temperature: float = field(default_factory=lambda: float(_env("CHAT_TEMPERATURE", "0.7")))
+    chat_max_tokens: int | None = field(default_factory=lambda: (
+        int(t) if (t := _env("CHAT_MAX_TOKENS")) else None
+    ))
+    # How many chunks to ground a chat answer on (more than for bare retrieval,
+    # because the tutor needs enough material to build a step-by-step answer).
+    chat_top_k: int = field(default_factory=lambda: int(_env("CHAT_TOP_K", "6")))
+    chat_timeout: float = field(default_factory=lambda: float(_env("CHAT_TIMEOUT", "120")))
+
     # ----------------------------------------------------------------- #
     def resolve_data_dir(self) -> Path:
         """Return the folder that actually contains mathematiques/ svt/ ..."""
@@ -123,6 +149,9 @@ class Config:
 
     def api_key_is_placeholder(self) -> bool:
         return _is_placeholder(self.embedding_api_key)
+
+    def chat_key_is_placeholder(self) -> bool:
+        return _is_placeholder(self.chat_api_key)
 
     def describe_embeddings(self) -> str:
         return (

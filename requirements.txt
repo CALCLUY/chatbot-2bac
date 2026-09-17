@@ -7,6 +7,16 @@ openai>=1.0                # client for any OpenAI-compatible /embeddings endpoi
 python-dotenv>=1.0         # optional: reads a .env file at the repo root
 
 # ---------------------------------------------------------------------------
+# Optional but recommended: a much better offline embedder.
+#
+# With scikit-learn installed, EMBEDDING_BACKEND=auto uses TF-IDF + LSA instead
+# of the hash-based fallback -- no API key needed, and noticeably better
+# grounding for the chat tutor. (~100 MB, pure python wheels.)
+# ---------------------------------------------------------------------------
+# scikit-learn>=1.3
+# joblib>=1.3
+
+# ---------------------------------------------------------------------------
 # Optional: local (free, offline) embeddings.
 #
 # Uncomment to enable EMBEDDING_BACKEND=sentence-transformers, which runs a

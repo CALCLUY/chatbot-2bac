@@ -192,6 +192,103 @@ best-first. It exits non-zero if any check fails — so it works as a smoke test
 
 ---
 
+## Chat tutor (step 2) — `python chat.py`
+
+A plain-text chat loop for judging **teaching quality** before any UI, animation
+or TTS work.
+
+```bash
+python chat.py                                  # interactive
+python chat.py --matiere SVT                    # start scoped to a subject
+python chat.py -q "c'est quoi une limite ?" --matiere Mathématiques
+```
+
+In-chat commands: `/matiere <nom>`, `/chapitre <nom>` (or `off` to clear),
+`/sources`, `/prompt` (dump the last request), `/reset`, `/help`, `/quit`.
+
+Each turn:
+
+1. retrieves grounded chunks with the step-1 retriever (subject/chapter filters
+   applied, MMR-diversified so you get a lesson + an example rather than six
+   copies of one exam paper);
+2. builds `[system prompt] + [conversation history] + [<contexte> chunks + question]`;
+3. calls the chat-completions API;
+4. prints the answer **followed by the sources it drew from** (file, séance,
+   score) for your own verification — real students would not see that block.
+
+### The system prompt
+
+In **`rag/prompts.py`**, not inline:
+
+* `TUTOR_SYSTEM_PROMPT` — the tutor's voice and pedagogy (darija + French,
+  step-by-step, never hand over an exam answer, …).
+* `GROUNDING_INSTRUCTIONS` — how to use the retrieved context and cite it
+  (`[Source N]`). Set it to `""` to drop it.
+
+`SYSTEM_PROMPT` is the two concatenated, which is what gets sent.
+
+### Configuration
+
+Copy `.env.example` to `.env` and fill in `CHAT_API_KEY`. Any OpenAI-compatible
+endpoint works — point `CHAT_BASE_URL` elsewhere for Ollama, OpenRouter, vLLM, …
+
+| Variable | Default |
+|---|---|
+| `CHAT_BASE_URL` | the Aster relay `/v1` |
+| `CHAT_API_KEY` | `[CHAT_API_KEY_HERE]` |
+| `CHAT_MODEL` | `gpt-5.6-luna` |
+| `CHAT_TEMPERATURE` | `0.7` |
+| `CHAT_TOP_K` | `6` (chunks used to ground each answer) |
+
+### Test conversations — `python run_test_conversations.py`
+
+Runs five scripted conversations and writes them to `transcripts/`
+(`.md` for reading, `.json` for diffing):
+
+| # | Scenario | What it checks |
+|---|---|---|
+| 1 | `1-maths-concept` | a maths concept question (limites) |
+| 2 | `2-physique-exercice` | a physics exercise — must guide, not answer |
+| 3 | `3-svt-question` | an SVT course question (méiose) |
+| 4 | `4-pas-compris` | "j'ai pas compris" — must re-explain *differently* |
+| 5 | `5-examen-reponse` | demanding an exam answer — guides first, yields only if the student insists |
+
+```bash
+python run_test_conversations.py               # all five
+python run_test_conversations.py --only svt    # just one
+```
+
+If the API is unreachable the script still writes every transcript, marked
+**INCOMPLETE**, with the retrieved sources intact — so you can review the
+grounding now and fill in the answers by re-running later.
+
+### Two subtle chat behaviours worth knowing
+
+* **Follow-up expansion.** A bare *"j'ai pas compris"* carries no topic, so
+  retrieving with it alone pulls in whatever chapter matches those words. When
+  a turn looks like a follow-up, the previous student question is prepended to
+  the search query (`build_retrieval_query` in `chat.py`). Without it that turn
+  was grounded on unrelated chapters (scores 0.19–0.30); with it, on the right
+  chapter (0.60).
+* **History stays clean.** Only the *current* turn carries retrieved context;
+  previous turns are replayed as plain student/assistant text, so a long
+  conversation does not re-send stale passages.
+
+### Offline plumbing check
+
+`tools/mock_chat_server.py` is a fake OpenAI-compatible endpoint, for when the
+relay is unreachable:
+
+```bash
+python tools/mock_chat_server.py --port 8765 --log /tmp/mock_requests.jsonl
+CHAT_BASE_URL=http://127.0.0.1:8765/v1 python chat.py -q "c'est quoi une limite ?"
+```
+
+It echoes back a description of the request it received (message roles, system
+prompt length, context size), which proves retrieval → prompt → HTTP → parsing
+all work. **Its replies are synthetic — never use them to judge teaching
+quality.**
+
 ## How the pipeline works
 
 ### 1. Parsing (`rag/parser.py`)
@@ -296,16 +393,24 @@ All settings can be set in `.env` or as environment variables (see `.env.example
 ingest.py              CLI: build the vector index
 retrieve.py            CLI + reusable retrieve() function
 test_retrieval.py      three sample queries, prints chunks + metadata
+chat.py                CLI chat loop with the AI tutor
+run_test_conversations.py   runs the 5 scripted conversations -> transcripts/
 requirements.txt
 .env.example           copy to .env and fill in the placeholders
+transcripts/           generated: 5 test conversations (.md + .json)
 rag/
   config.py            settings, placeholders, backend resolution
   parser.py            front-matter parsing + metadata normalisation
   chunker.py           semantic, LaTeX-safe chunking + integrity check
-  embeddings.py        openai / sentence-transformers / hashing backends
+  embeddings.py        openai / sentence-transformers / tfidf / hashing backends
   vectorstore.py       Chroma wrapper, filters, provenance
+  selection.py         score trimming, per-file cap, MMR diversity
   pipeline.py          parse -> chunk -> embed -> upsert
+  prompts.py           THE SYSTEM PROMPT + grounding/prompt assembly
+  llm.py               chat-completions client
   display.py           terminal rendering
+tools/
+  mock_chat_server.py  fake OpenAI-compatible endpoint for offline plumbing tests
 ```
 
 ## Troubleshooting

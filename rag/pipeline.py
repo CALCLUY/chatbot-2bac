@@ -13,7 +13,7 @@ import numpy as np
 
 from .chunker import chunk_documents, validate_latex_integrity
 from .config import Config
-from .embeddings import Embedder, get_embedder, hashing_state_path
+from .embeddings import Embedder, get_embedder
 from .parser import parse_corpus
 from .vectorstore import VectorStore
 
@@ -63,8 +63,11 @@ def embed_all(chunks: list, embedder: Embedder, batch_size: int = 64, verbose: b
     if verbose:
         print(f"[embed] encoding {len(texts)} chunks with {embedder.backend_name} ...")
 
-    # The TF-IDF fallback needs to see the corpus once before it can weight terms.
-    if hasattr(embedder, "fit") and embedder.backend_name == "hashing":
+    # The offline backends need to see the corpus once before they can weight
+    # terms (IDF table / TF-IDF vocabulary + SVD).
+    if hasattr(embedder, "fit") and embedder.backend_name in ("hashing", "tfidf"):
+        if verbose:
+            print(f"[embed] fitting {embedder.backend_name} on {len(texts)} chunks ...")
         embedder.fit(texts)
 
     vectors = np.zeros((len(texts), embedder.dim), dtype=np.float32)
@@ -105,12 +108,13 @@ def run_ingestion(config: Config, reset: bool = True, limit: int | None = None,
     vectors = embed_all(chunks, embedder, batch_size=config.embedding_batch_size, verbose=verbose)
     stats.dim = int(vectors.shape[1])
 
-    # Persist the fitted IDF table so queries are weighted the same way.
-    if embedder.backend_name == "hashing":
-        state_path = hashing_state_path(config)
+    # Persist the fitted state so queries are weighted the same way as the
+    # documents (the offline backends need this; API models do not).
+    state_path = getattr(embedder, "state_path", None)
+    if state_path is not None:
         embedder.save_state(state_path)
         if verbose:
-            print(f"[embed] saved IDF state to {state_path}")
+            print(f"[embed] saved embedder state to {state_path}")
 
     store = VectorStore(config)
     if reset and store.count():

@@ -190,6 +190,106 @@ class HashingEmbedder(Embedder):
 
 
 # --------------------------------------------------------------------------- #
+# 2b. TF-IDF + LSA (scikit-learn) -- the good offline option
+# --------------------------------------------------------------------------- #
+class TfidfEmbedder(Embedder):
+    """Exact TF-IDF reduced with truncated SVD (LSA).
+
+    Unlike :class:`HashingEmbedder` this builds a real vocabulary, so there
+    are no hash collisions, and the SVD step captures co-occurrence structure
+    (``limite`` ends up near the *Limites et continuité* chapter rather than
+    near any exam paper that happens to print ``\\lim`` a lot).
+
+    Needs ``scikit-learn``; if it is missing :func:`get_embedder` falls back to
+    :class:`HashingEmbedder`.
+    """
+
+    backend_name = "tfidf"
+
+    def __init__(self, model: str = "tfidf-lsa", dim: int = 512, state_path=None):
+        super().__init__(model, dim)
+        self.state_path = Path(state_path) if state_path else None
+        self._vectorizer = None
+        self._svd = None
+
+    # -- fitting ----------------------------------------------------------- #
+    def fit(self, corpus_texts: Sequence[str]) -> None:
+        from sklearn.decomposition import TruncatedSVD
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.pipeline import FeatureUnion
+
+        word = TfidfVectorizer(
+            analyzer="word", ngram_range=(1, 2), min_df=2, max_df=0.7,
+            max_features=120_000, sublinear_tf=True, strip_accents="unicode",
+            lowercase=True,
+        )
+        # char_wb n-grams make the model robust to LaTeX noise and to the
+        # spelling of dialect words.
+        char = TfidfVectorizer(
+            analyzer="char_wb", ngram_range=(3, 5), min_df=3,
+            max_features=180_000, sublinear_tf=True, strip_accents="unicode",
+            lowercase=True,
+        )
+        union = FeatureUnion([("w", word), ("c", char)])
+
+        matrix = union.fit_transform(corpus_texts)
+        n_components = min(self._dim, min(matrix.shape) - 1)
+        svd = TruncatedSVD(n_components=n_components, algorithm="randomized",
+                           random_state=0, n_iter=7)
+        svd.fit(matrix)
+
+        self._vectorizer = union
+        self._svd = svd
+        self._dim = int(n_components)
+
+    # -- persistence ------------------------------------------------------- #
+    def save_state(self, path) -> None:
+        import joblib
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump({"dim": self._dim, "vectorizer": self._vectorizer, "svd": self._svd},
+                    path)
+
+    def load_state(self, path) -> bool:
+        import joblib
+
+        path = Path(path)
+        if not path.is_file():
+            return False
+        try:
+            state = joblib.load(path)
+        except Exception:                                # noqa: BLE001
+            return False
+        self._dim = int(state.get("dim", self._dim))
+        self._vectorizer = state.get("vectorizer")
+        self._svd = state.get("svd")
+        return self._vectorizer is not None and self._svd is not None
+
+    # -- encoding ---------------------------------------------------------- #
+    def encode(self, texts: Sequence[str], input_type: str = "document") -> np.ndarray:
+        if self._vectorizer is None or self._svd is None:
+            raise RuntimeError(
+                "TfidfEmbedder has not been fitted (or its state could not be "
+                "loaded). Run `python ingest.py` to build the index."
+            )
+        matrix = self._vectorizer.transform(list(texts))
+        vectors = self._svd.transform(matrix).astype(np.float32)
+        # SVD components are already unit-norm; normalise the rows anyway so
+        # cosine similarity behaves for short queries too.
+        _l2_normalise(vectors)
+        return vectors
+
+
+def _have_sklearn() -> bool:
+    try:
+        import sklearn  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+# --------------------------------------------------------------------------- #
 # 2. OpenAI-compatible API
 # --------------------------------------------------------------------------- #
 class OpenAIEmbedder(Embedder):
@@ -288,8 +388,17 @@ def _l2_normalise(matrix: np.ndarray) -> None:
 
 
 def hashing_state_path(config: Config):
-    """Where the fitted IDF table for the offline backend is cached."""
+    """Where the fitted IDF table for the hash-based backend is cached."""
     return Path(config.chroma_dir) / f"{config.collection_name}-hashing-idf.json"
+
+
+def embedder_state_path(config: Config, ext: str = ".joblib"):
+    """Where the fitted state of the offline backends is cached.
+
+    ``.json``   -> HashingEmbedder (pure python, no extra dependency)
+    ``.joblib`` -> TfidfEmbedder (scikit-learn objects)
+    """
+    return Path(config.chroma_dir) / f"{config.collection_name}-embedder-state{ext}"
 
 
 def _have_sentence_transformers() -> bool:
@@ -319,6 +428,8 @@ def get_embedder(config: Config, verbose: bool = True) -> Embedder:
             backend = "sentence-transformers"
             if model == PLACEHOLDER_MODEL:
                 model = config.embedding_model_local
+        elif _have_sklearn():
+            backend = "tfidf"
         else:
             backend = "hashing"
 
@@ -342,11 +453,22 @@ def get_embedder(config: Config, verbose: bool = True) -> Embedder:
         embedder = SentenceTransformerEmbedder(
             model=model, dim=config.embedding_dim, batch_size=config.embedding_batch_size
         )
-    elif backend in ("hashing", "tfidf", "offline"):
+    elif backend in ("tfidf", "offline"):
+        if not _have_sklearn():
+            print("[embeddings] scikit-learn not installed; using the hash-based fallback. "
+                  "Install it with: pip install scikit-learn")
+            embedder = HashingEmbedder(dim=config.embedding_dim or 1024)
+            embedder.state_path = embedder_state_path(config, ".json")
+        else:
+            embedder = TfidfEmbedder(dim=config.embedding_dim or 512,
+                                     state_path=embedder_state_path(config, ".joblib"))
+        if embedder.load_state(embedder.state_path):
+            if verbose:
+                print("[embeddings] loaded fitted state from disk")
+    elif backend in ("hashing",):
         embedder = HashingEmbedder(dim=config.embedding_dim or 1024)
-        # Reuse the IDF table fitted at ingestion time, if the index was built
-        # with this backend.
-        if embedder.load_state(hashing_state_path(config)):
+        embedder.state_path = embedder_state_path(config, ".json")
+        if embedder.load_state(embedder.state_path):
             if verbose:
                 print(f"[embeddings] loaded IDF state ({embedder._doc_count} docs)")
     else:
@@ -357,6 +479,11 @@ def get_embedder(config: Config, verbose: bool = True) -> Embedder:
         if embedder.backend_name == "hashing":
             print("[embeddings] NOTE: offline lexical fallback in use "
                   "(no EMBEDDING_MODEL/EMBEDDING_API_KEY configured).")
+        elif embedder.backend_name in ("tfidf", "hashing"):
+            print("[embeddings] NOTE: offline lexical embedder in use "
+                  "(no EMBEDDING_MODEL/EMBEDDING_API_KEY configured). "
+                  "Good enough to test the pipeline; configure a real model to "
+                  "judge semantic quality.")
         elif embedder.backend_name == "sentence-transformers" and config.model_is_placeholder():
             print("[embeddings] NOTE: no EMBEDDING_MODEL/EMBEDDING_API_KEY configured, so a local "
                   "model is used. It will be downloaded on first run (~500 MB).")

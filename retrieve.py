@@ -29,6 +29,7 @@ from typing import Sequence
 from rag.config import DEFAULT_CONFIG, Config
 from rag.display import print_results
 from rag.embeddings import get_embedder
+from rag.selection import refine
 from rag.vectorstore import RetrievedChunk, VectorStore, build_where
 
 
@@ -71,6 +72,7 @@ class Retriever:
         annee: str | int | None = None,
         block_type: str | None = None,
         where: dict | None = None,
+        diverse: bool = False,
     ) -> list[RetrievedChunk]:
         """Return the ``top_k`` chunks most similar to *query*.
 
@@ -80,6 +82,11 @@ class Retriever:
             The student's question (French, may contain LaTeX).
         top_k:
             How many chunks to return. Defaults to ``config.top_k`` (5).
+        diverse:
+            Fetch extra candidates, drop the weak tail, cap duplicates from one
+            file and re-rank with MMR (see ``rag/selection.py``). Produces a
+            better grounding context for the tutor, but the returned order is
+            no longer strictly score-descending. Off by default.
         matiere, chapitre, type, annee, block_type:
             Optional metadata filters. ``chapitre`` also matches the
             ``semestre`` field, because Physique-Chimie files are organised by
@@ -108,6 +115,13 @@ class Retriever:
         k = int(top_k or self.config.top_k)
 
         vector = self.embedder.encode([query], input_type="query")[0]
+
+        if diverse:
+            fetch_k = min(k * max(self.config.retrieval_fetch_multiplier, 1), max(self.store.count(), 1))
+            candidates = self.store.query(vector, top_k=fetch_k, where=clause,
+                                          with_embeddings=True)
+            return refine(candidates, top_k=k, config=self.config)
+
         return self.store.query(vector, top_k=k, where=clause)
 
 

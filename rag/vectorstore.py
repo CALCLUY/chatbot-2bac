@@ -36,7 +36,8 @@ class RetrievedChunk:
     chunk_id: str
     content: str
     metadata: dict
-    score: float          # cosine similarity in [-1, 1]; higher is better
+    score: float                       # cosine similarity in [-1, 1]; higher is better
+    embedding: list | None = None      # only populated when refinement is used
 
     def __repr__(self) -> str:  # pragma: no cover - debugging helper
         return f"<RetrievedChunk {self.chunk_id} score={self.score:.3f}>"
@@ -171,14 +172,19 @@ class VectorStore:
 
     # -- reading ---------------------------------------------------------- #
     def query(self, embedding: Sequence[float], top_k: int, where: dict | None,
-              include: Sequence[str] = ("documents", "metadatas", "distances")) -> list[RetrievedChunk]:
+              include: Sequence[str] = ("documents", "metadatas", "distances"),
+              with_embeddings: bool = False) -> list[RetrievedChunk]:
         if self.count() == 0:
             return []
+
+        fields = list(include)
+        if with_embeddings and "embeddings" not in fields:
+            fields.append("embeddings")
 
         kwargs: dict[str, Any] = {
             "query_embeddings": [list(map(float, embedding))],
             "n_results": min(top_k, self.count()),
-            "include": list(include),
+            "include": fields,
         }
         if where:
             kwargs["where"] = where
@@ -188,9 +194,12 @@ class VectorStore:
         documents = result["documents"][0] if result.get("documents") else [""] * len(ids)
         metadatas = result["metadatas"][0] if result.get("metadatas") else [{}] * len(ids)
         distances = result["distances"][0] if result.get("distances") else [0.0] * len(ids)
+        vectors = result.get("embeddings")
+        vectors = vectors[0] if vectors else [None] * len(ids)
 
         hits: list[RetrievedChunk] = []
-        for chunk_id, document, metadata, distance in zip(ids, documents, metadatas, distances):
+        for chunk_id, document, metadata, distance, vector in zip(
+                ids, documents, metadatas, distances, vectors):
             hits.append(
                 RetrievedChunk(
                     chunk_id=chunk_id,
@@ -198,6 +207,7 @@ class VectorStore:
                     metadata=dict(metadata or {}),
                     # Chroma returns cosine *distance*; convert to similarity.
                     score=1.0 - float(distance),
+                    embedding=[float(x) for x in vector] if vector is not None else None,
                 )
             )
         return hits

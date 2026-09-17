@@ -1,0 +1,47 @@
+{
+  "generated_at": "2026-09-17T02:01:10",
+  "model": "gpt-5.6-luna",
+  "system_prompt_chars": 2957,
+  "conversations": [
+    {
+      "id": "1-maths-concept",
+      "title": "Mathématiques — question de concept (limites)",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 1,
+      "md": "1-maths-concept.md",
+      "json": "1-maths-concept.json"
+    },
+    {
+      "id": "2-physique-exercice",
+      "title": "Physique-Chimie — énoncé d'exercice (ondes mécaniques)",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 1,
+      "md": "2-physique-exercice.md",
+      "json": "2-physique-exercice.json"
+    },
+    {
+      "id": "3-svt-question",
+      "title": "SVT — question de cours (méiose et réduction chromatique)",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 1,
+      "md": "3-svt-question.md",
+      "json": "3-svt-question.json"
+    },
+    {
+      "id": "4-pas-compris",
+      "title": "Reformulation — « je n'ai pas compris »",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 2,
+      "md": "4-pas-compris.md",
+      "json": "4-pas-compris.json"
+    },
+    {
+      "id": "5-examen-reponse",
+      "title": "Demande directe d'une réponse d'examen (SVT bac 2024)",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 2,
+      "md": "5-examen-reponse.md",
+      "json": "5-examen-reponse.json"
+    }
+  ]
+}
