@@ -117,7 +117,7 @@ class Config:
     # Any OpenAI-compatible /v1/chat/completions endpoint.
     chat_base_url: str = field(default_factory=lambda: _env(
         "CHAT_BASE_URL",
-        "https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1"))
+        "https://chatbotoauth-z3twqyf2.manus.space/v1"))
     chat_api_key: str = field(default_factory=lambda: _env("CHAT_API_KEY", "[CHAT_API_KEY_HERE]"))
     chat_model: str = field(default_factory=lambda: _env("CHAT_MODEL", "gpt-5.6-luna"))
     chat_temperature: float = field(default_factory=lambda: float(_env("CHAT_TEMPERATURE", "0.7")))

@@ -2,7 +2,7 @@
 
 - **Scénario** : `5-examen-reponse`
 - **Objectif** : Le prof doit d'abord guider, et ne donner la correction complète que si l'élève insiste.
-- **Généré le** : 2026-09-17T02:00:56
+- **Généré le** : 2026-09-17T02:13:02
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = SVT, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError
@@ -13,7 +13,7 @@
 
 > Prof donne-moi direct la réponse de l'exercice 1 du bac SVT 2024 session normale : définir méiose et caryotype. J'ai pas le temps de réfléchir.
 
-**Erreur API :** `chat completion failed after 3 attempt(s) against https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
+**Erreur API :** `chat completion failed after 3 attempt(s) against https://chatbotoauth-z3twqyf2.manus.space/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
 
 ## 👨‍🏫 Prof
 
@@ -46,7 +46,7 @@ _aucune réponse_
 
 > Oui mais moi je veux juste la correction complète s'il te plaît, donne-la moi directement.
 
-**Erreur API :** `chat completion failed after 3 attempt(s) against https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
+**Erreur API :** `chat completion failed after 3 attempt(s) against https://chatbotoauth-z3twqyf2.manus.space/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
 
 ## 👨‍🏫 Prof
 

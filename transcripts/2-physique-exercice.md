@@ -2,7 +2,7 @@
 
 - **Scénario** : `2-physique-exercice`
 - **Objectif** : Accompagner un élève sur un exercice sans donner la réponse : il doit être guidé.
-- **Généré le** : 2026-09-17T02:00:29
+- **Généré le** : 2026-09-17T02:12:34
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = Physique-Chimie, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError
@@ -13,7 +13,7 @@
 
 > Prof, j'ai un exercice et je sais pas par où commencer. Le voici : un vibreur provoque à l'extrémité S d'une corde élastique un mouvement vibratoire sinusoïdal d'équation $y_s(t) = a.cos(2\pi Nt + \varphi)$. La source S débute son mouvement à t0 = 0 s. On néglige toute atténuation. 1. L'expression « mouvement vibratoire sinusoïdal » peut être remplacée par un seul mot, lequel ? 2. L'onde qui se propage le long de la corde est-elle transversale ou longitudinale ? Justifier. Aide-moi à réfléchir.
 
-**Erreur API :** `chat completion failed after 3 attempt(s) against https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
+**Erreur API :** `chat completion failed after 3 attempt(s) against https://chatbotoauth-z3twqyf2.manus.space/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
 
 ## 👨‍🏫 Prof
 

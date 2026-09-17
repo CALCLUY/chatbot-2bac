@@ -2,7 +2,7 @@
 
 - **Scénario** : `4-pas-compris`
 - **Objectif** : Vérifier qu'après un « j'ai pas compris », le prof change d'approche au lieu de répéter.
-- **Généré le** : 2026-09-17T02:00:43
+- **Généré le** : 2026-09-17T02:12:49
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = Mathématiques, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError
@@ -13,7 +13,7 @@
 
 > Prof, c'est quoi un nombre complexe et à quoi ça sert ?
 
-**Erreur API :** `chat completion failed after 3 attempt(s) against https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
+**Erreur API :** `chat completion failed after 3 attempt(s) against https://chatbotoauth-z3twqyf2.manus.space/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
 
 ## 👨‍🏫 Prof
 
@@ -40,7 +40,7 @@ _aucune réponse_
 
 > Franchement j'ai pas compris, tu peux me réexpliquer ?
 
-**Erreur API :** `chat completion failed after 3 attempt(s) against https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
+**Erreur API :** `chat completion failed after 3 attempt(s) against https://chatbotoauth-z3twqyf2.manus.space/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
 
 ## 👨‍🏫 Prof
 

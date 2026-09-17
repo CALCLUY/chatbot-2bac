@@ -251,6 +251,20 @@ def main(argv=None) -> int:
             "conversations": index,
         }, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # One combined file, so the whole batch can be read or pasted in one go.
+    combined = [
+        "# Transcripts — tuteur 2Bac SM",
+        "",
+        f"- **Généré le** : {datetime.now().isoformat(timespec='seconds')}",
+        f"- **Modèle** : `{DEFAULT_CONFIG.chat_model}`",
+        f"- **System prompt** : `rag/prompts.py` ({len(SYSTEM_PROMPT)} caractères)",
+        "",
+    ]
+    for item in index:
+        body = (args.out / item["md"]).read_text(encoding="utf-8")
+        combined += [body, ""]
+    (args.out / "ALL.md").write_text("\n".join(combined), encoding="utf-8")
+
     print(f"\n{'=' * 96}\n{len(index)} transcript(s) written to {args.out}/")
     for item in index:
         print(f"  - {item['md']:<28} {item['status']}")

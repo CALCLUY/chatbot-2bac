@@ -234,7 +234,7 @@ endpoint works — point `CHAT_BASE_URL` elsewhere for Ollama, OpenRouter, vLLM,
 
 | Variable | Default |
 |---|---|
-| `CHAT_BASE_URL` | the Aster relay `/v1` |
+| `CHAT_BASE_URL` | `https://chatbotoauth-z3twqyf2.manus.space/v1` |
 | `CHAT_API_KEY` | `[CHAT_API_KEY_HERE]` |
 | `CHAT_MODEL` | `gpt-5.6-luna` |
 | `CHAT_TEMPERATURE` | `0.7` |

@@ -2,7 +2,7 @@
 
 - **Scénario** : `1-maths-concept`
 - **Objectif** : Expliquer un concept du programme : la limite d'une fonction en un point.
-- **Généré le** : 2026-09-17T02:00:20
+- **Généré le** : 2026-09-17T02:12:25
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = Mathématiques, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError
@@ -13,7 +13,7 @@
 
 > Saha prof, je comprends pas bien c'est quoi la limite d'une fonction. Tu peux m'expliquer ?
 
-**Erreur API :** `chat completion failed after 3 attempt(s) against https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
+**Erreur API :** `chat completion failed after 3 attempt(s) against https://chatbotoauth-z3twqyf2.manus.space/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
 
 ## 👨‍🏫 Prof
 

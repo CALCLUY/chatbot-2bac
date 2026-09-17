@@ -2,7 +2,7 @@
 
 - **Scénario** : `3-svt-question`
 - **Objectif** : Expliquer la méiose et la réduction chromatique, en restant dans le programme.
-- **Généré le** : 2026-09-17T02:00:36
+- **Généré le** : 2026-09-17T02:12:41
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = SVT, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError
@@ -13,7 +13,7 @@
 
 > SVP prof, c'est quoi la méiose exactement ? Et la réduction chromatique, ça veut dire quoi ? J'ai du mal à faire la différence avec la mitose.
 
-**Erreur API :** `chat completion failed after 3 attempt(s) against https://aster-chat-relay-82at7rlnx-calcls-projects-c68a5bd8.vercel.app/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
+**Erreur API :** `chat completion failed after 3 attempt(s) against https://chatbotoauth-z3twqyf2.manus.space/v1 (model=gpt-5.6-luna): APIConnectionError: Connection error.`
 
 ## 👨‍🏫 Prof
 
