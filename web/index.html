@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tuteur 2Bac SM — test de qualité</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1d1d1f; --muted: #6b6b70;
+    --line: #e2e0d9; --me: #2f6f4f; --prof: #1f3d7a; --warn: #8a4b00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--line);
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; }
+  header .meta { font-size: 12px; color: var(--muted); }
+  header .spacer { flex: 1; }
+  label { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  select, input, button { font: inherit; }
+  select, input {
+    padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 20px 130px; }
+  .msg { margin: 0 0 18px; }
+  .who { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .bubble {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.me .bubble { background: #eef5f0; border-color: #cfe3d6; }
+  .msg.me .who { color: var(--me); }
+  .msg.prof .who { color: var(--prof); }
+  .err { color: var(--warn); background: #fff6e8; border: 1px solid #f0d9b5; border-radius: 10px; padding: 10px 13px; font-size: 13px; }
+  .tag { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: #eceffa; color: var(--prof); border: 1px solid #d3dcf3; }
+  details { margin-top: 9px; font-size: 13px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  .src { border-left: 3px solid var(--line); padding: 7px 0 7px 11px; margin: 9px 0; }
+  .src .place { font-weight: 600; font-size: 12.5px; }
+  .src .file { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: var(--muted); word-break: break-all; }
+  .src .prev { color: #45454a; font-size: 12.5px; margin-top: 4px; }
+  form {
+    position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
+    border-top: 1px solid var(--line); padding: 12px 20px; display: flex; gap: 9px; align-items: center;
+  }
+  form .wrap { max-width: 860px; margin: 0 auto; display: flex; gap: 9px; width: 100%; align-items: center; }
+  #input { flex: 1; }
+  button { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--prof); background: var(--prof); color: #fff; cursor: pointer; }
+  button[disabled] { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tuteur 2Bac SM</h1>
+  <span class="meta" id="meta">chargement…</span>
+  <span class="spacer"></span>
+  <label>Matière
+    <select id="matiere">
+      <option value="">Toutes</option>
+      <option value="Mathématiques">Mathématiques</option>
+      <option value="Physique-Chimie">Physique-Chimie</option>
+      <option value="SVT">SVT</option>
+    </select>
+  </label>
+  <label>Backend
+    <select id="backend">
+      <option value="real">API réelle</option>
+      <option value="mock">Mock (sans API)</option>
+    </select>
+  </label>
+  <button id="reset" type="button" style="background:#fff;color:var(--muted);border-color:var(--line)">Reset</button>
+</header>
+
+<div id="banner" style="display:none;max-width:860px;margin:12px auto -4px;padding:10px 14px;border-radius:10px;background:#fff6e8;border:1px solid #f0d9b5;color:#8a4b00;font-size:13px"></div>
+
+<main id="chat"></main>
+
+<form id="form">
+  <div class="wrap">
+    <input id="input" placeholder="Pose ta question au prof… (ex: c'est quoi la limite d'une fonction ?)" autocomplete="off">
+    <button id="send" type="submit">Envoyer</button>
+  </div>
+</form>
+
+<script>
+const chat = document.getElementById('chat');
+const form = document.getElementById('form');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+const metaEl = document.getElementById('meta');
+let history = [];
+
+fetch('/api/health').then(r => r.json()).then(h => {
+  metaEl.textContent = `modèle ${h.model} · ${h.vectors} vecteurs · clé ${h.key_set ? 'ok' : 'absente'}`;
+  const banner = document.getElementById('banner');
+  if (!h.key_set) {
+    document.getElementById('backend').value = 'mock';
+    banner.style.display = 'block';
+    banner.textContent = 'CHAT_API_KEY non configurée — mode Mock actif (aucun vrai modèle appelé).';
+  } else if (h.checked && !h.ok) {
+    const sel = document.getElementById('backend');
+    sel.value = 'mock';
+    // Grey out the real API so it cannot be picked by mistake: from this
+    // environment it can only ever fail.
+    Array.from(sel.options).forEach(o => { if (o.value === 'real') o.disabled = true; });
+    banner.style.display = 'block';
+    banner.innerHTML = '<strong>API injoignable depuis ce sandbox</strong> (' + escapeHtml(h.detail) +
+      '). Le mode « API réelle » est désactivé : la sortie réseau de ce serveur est limitée à pypi/npm/github, ' +
+      'donc aucun endpoint ne répondra ici — ce n\'est ni ta clé ni ton endpoint.<br>' +
+      'Pour de vraies réponses, lance <code>python web_chat.py</code> <strong>sur ta machine</strong> ' +
+      '(<code>git pull</code> d\'abord). En attendant, « Mock » te laisse tester l\'interface et la récupération de sources.';
+  }
+}).catch(() => { metaEl.textContent = 'api indisponible'; });
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function addMessage(role, text, sources, tag) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + (role === 'user' ? 'me' : 'prof');
+  let html = `<div class="who">${role === 'user' ? 'Élève' : 'Prof'}`;
+  if (tag) html += ` <span class="tag">${escapeHtml(tag)}</span>`;
+  html += `</div><div class="bubble">${escapeHtml(text || '')}</div>`;
+
+  if (sources && sources.length) {
+    html += `<details open><summary>${sources.length} source(s) utilisée(s)</summary>`;
+    sources.forEach((s, i) => {
+      html += `<div class="src"><div class="place">[${i+1}] ${escapeHtml(s.place || '')} ` +
+              `<span style="color:var(--muted)">(${s.score})</span></div>` +
+              `<div class="file">${escapeHtml(s.file)} · extrait ${escapeHtml(String(s.chunk))} · ligne ~${escapeHtml(String(s.line))}` +
+              `${s.heading ? ' · ' + escapeHtml(s.heading) : ''}</div>` +
+              `<div class="prev">${escapeHtml(s.preview)}…</div></div>`;
+    });
+    html += `</details>`;
+  }
+  wrap.innerHTML = html;
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function addError(text) {
+  const d = document.createElement('div');
+  d.className = 'msg';
+  d.innerHTML = `<div class="err">${escapeHtml(text)}</div>`;
+  chat.appendChild(d);
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const message = input.value.trim();
+  if (!message) return;
+
+  addMessage('user', message);
+  history.push({role: 'user', content: message});
+  input.value = '';
+  sendBtn.disabled = true;
+  input.placeholder = 'le prof réfléchit…';
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        message: message,
+        history: history,
+        matiere: document.getElementById('matiere').value,
+        backend: document.getElementById('backend').value,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      addError(data.error);
+    } else {
+      addMessage('assistant', data.answer, data.sources, data.mock ? 'MOCK — pas un vrai modèle' : null);
+      history.push({role: 'assistant', content: data.answer});
+    }
+  } catch (err) {
+    addError('Erreur réseau : ' + err);
+  } finally {
+    sendBtn.disabled = false;
+    input.placeholder = 'Pose ta question au prof… (ex: c\'est quoi la limite d\'une fonction ?)';
+    input.focus();
+  }
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+  history = [];
+  chat.innerHTML = '';
+});
+
+input.focus();
+</script>
+</body>
+</html>
