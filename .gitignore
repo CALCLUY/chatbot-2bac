@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Secrets
+.env
+
+# Data & generated artefacts (corpus clone, vector index, chunk dump)
+# Keep these out of git: they are downloaded / rebuilt by `python ingest.py`.
+data/

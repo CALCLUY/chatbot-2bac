@@ -1,0 +1,17 @@
+# Core requirements for the retrieval pipeline.
+#   pip install -r requirements.txt
+
+chromadb>=0.5.0            # local, self-hostable vector database (no server needed)
+numpy>=1.24                # vector maths
+openai>=1.0                # client for any OpenAI-compatible /embeddings endpoint
+python-dotenv>=1.0         # optional: reads a .env file at the repo root
+
+# ---------------------------------------------------------------------------
+# Optional: local (free, offline) embeddings.
+#
+# Uncomment to enable EMBEDDING_BACKEND=sentence-transformers, which runs a
+# HuggingFace model on your own machine instead of calling a paid API.
+# Pulls in torch (~2 GB installed). Recommended model for French + maths:
+#   intfloat/multilingual-e5-small
+# ---------------------------------------------------------------------------
+# sentence-transformers>=3.0.0
