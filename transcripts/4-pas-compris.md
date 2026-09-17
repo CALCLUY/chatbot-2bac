@@ -2,7 +2,7 @@
 
 - **Scénario** : `4-pas-compris`
 - **Objectif** : Vérifier qu'après un « j'ai pas compris », le prof change d'approche au lieu de répéter.
-- **Généré le** : 2026-09-17T02:12:49
+- **Généré le** : 2026-09-17T18:10:49
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = Mathématiques, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError

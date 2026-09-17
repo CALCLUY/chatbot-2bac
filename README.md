@@ -227,6 +227,20 @@ In **`rag/prompts.py`**, not inline:
 
 `SYSTEM_PROMPT` is the two concatenated, which is what gets sent.
 
+The tutor prompt is written around an explicit anti-goal — *"ton objectif n'est
+PAS de donner l'information la plus complète possible rapidement"* — and four
+enforceable rule blocks:
+
+| Rule block | What it constrains |
+|---|---|
+| **Langue** | darija in latin script + technical vocabulary kept in French |
+| **Découpage strict** | one new idea per reply, hard cap of **3 sentences**, never définition+exemple+exercice in one message, complex notions split even further (intuition → check → formal) |
+| **Exemples concrets / images mentales** | an analogy from a Moroccan teenager's daily life **before** the formal definition, a second numeric example after it, "tsawwar / imagine / chouf f rassek" for the truly abstract notions |
+| **Réponses d'examen** | a fixed 4-step process — ask what they tried → one hint → guide one step at a time → reveal **only** after ≥2 guidance exchanges *and* an explicit request ("wrini l7al"). Exception: a student who already proposed an answer and asks to *check* it |
+
+Scenarios 6–9 of the test harness exist specifically to stress these four
+blocks; `check_transcripts.py` turns the results into a review note.
+
 ### Configuration
 
 Copy `.env.example` to `.env` and fill in `CHAT_API_KEY`. Any OpenAI-compatible
@@ -242,7 +256,7 @@ endpoint works — point `CHAT_BASE_URL` elsewhere for Ollama, OpenRouter, vLLM,
 
 ### Test conversations — `python run_test_conversations.py`
 
-Runs five scripted conversations and writes them to `transcripts/`
+Runs nine scripted conversations and writes them to `transcripts/`
 (`.md` for reading, `.json` for diffing):
 
 | # | Scenario | What it checks |
@@ -252,15 +266,42 @@ Runs five scripted conversations and writes them to `transcripts/`
 | 3 | `3-svt-question` | an SVT course question (méiose) |
 | 4 | `4-pas-compris` | "j'ai pas compris" — must re-explain *differently* |
 | 5 | `5-examen-reponse` | demanding an exam answer — guides first, yields only if the student insists |
+| 6 | `6-multi-tour-erreur` | **edge case** — 4 turns where the student gets it wrong, then over-generalises: does the tutor keep context and stay patient? |
+| 7 | `7-eleve-decourage` | **edge case** — "ma fahemch walou, khasni no9ta": stays patient, does *not* dump the answer to end the frustration |
+| 8 | `8-eleve-obsine-reponse-examen` | **edge case** — insists on the exam answer 3 times in a row (incl. an explicit "wrini l7al"): does the 4-step guidance process hold, or does it cave early? |
+| 9 | `9-hors-programme` | **edge case** — crypto, astronomy, Python: says clearly it is out of programme instead of inventing an answer |
 
 ```bash
-python run_test_conversations.py               # all five
-python run_test_conversations.py --only svt    # just one
+python run_test_conversations.py                    # all nine
+python run_test_conversations.py --only svt         # just one
+python run_test_conversations.py --require-live     # abort rather than write INCOMPLETE files
 ```
 
 If the API is unreachable the script still writes every transcript, marked
 **INCOMPLETE**, with the retrieved sources intact — so you can review the
-grounding now and fill in the answers by re-running later.
+grounding now and fill in the answers by re-running later. A preflight probe
+reports a dead endpoint in seconds instead of after all 21 turns
+(`--skip-preflight` to disable it).
+
+### Auditing the transcripts — `python check_transcripts.py`
+
+Reads `transcripts/*.json` and writes `transcripts/REVIEW-NOTES.md`: per turn it
+counts sentences (LaTeX neutralised first, so `$\frac{a}{b}$` cannot inflate the
+count), flags definition+exemple+exercice stacked in one message, flags a
+solution marker appearing before the turn where revealing it is allowed, checks
+that a "j'ai pas compris" turn actually re-words the previous explanation, and
+checks that out-of-programme questions are declared as such.
+
+```bash
+python check_transcripts.py            # -> transcripts/REVIEW-NOTES.md
+python check_transcripts.py --json     # also dump transcripts/audit.json
+```
+
+The mechanical verdicts (❌/✅) are there to *locate* the suspect turns fast; each
+scenario also lists the points that need a human read (is the analogy good? did
+it remember the student's mistake?). A ❌ can be a false positive — read the
+extract before concluding. On **INCOMPLETE** transcripts no pedagogical rule can
+be checked at all, since there is no model answer.
 
 ### Two subtle chat behaviours worth knowing
 
@@ -394,10 +435,11 @@ ingest.py              CLI: build the vector index
 retrieve.py            CLI + reusable retrieve() function
 test_retrieval.py      three sample queries, prints chunks + metadata
 chat.py                CLI chat loop with the AI tutor
-run_test_conversations.py   runs the 5 scripted conversations -> transcripts/
+run_test_conversations.py   runs the 9 scripted conversations -> transcripts/
+check_transcripts.py     audits transcripts/ against the prompt rules -> REVIEW-NOTES.md
 requirements.txt
 .env.example           copy to .env and fill in the placeholders
-transcripts/           generated: 5 test conversations (.md + .json)
+transcripts/           generated: 9 test conversations (.md + .json) + REVIEW-NOTES.md
 rag/
   config.py            settings, placeholders, backend resolution
   parser.py            front-matter parsing + metadata normalisation
@@ -423,3 +465,6 @@ tools/
 | `[warn] index was built with … but you are querying it with …` | the embedder changed; re-run `python ingest.py` — scores from two different models are not comparable |
 | slow first `sentence-transformers` run | it downloads the model (~500 MB) once, then caches it |
 | poor relevance | if you are on the `hashing` backend, that is expected — configure real embeddings and rebuild |
+| `[preflight] FAILED` / every transcript says **INCOMPLETE — ChatError** | the chat endpoint is unreachable or the key is wrong — nothing to do with retrieval. Set `CHAT_BASE_URL` / `CHAT_API_KEY` / `CHAT_MODEL` in `.env` to a live OpenAI-compatible endpoint, then re-run `python run_test_conversations.py`; the transcripts are overwritten in place |
+| `chat completion failed after 3 attempt(s) … SSL_ERROR_SYSCALL` | the default relay `chatbotoauth-z3twqyf2.manus.space` is down/decommissioned — point `CHAT_BASE_URL` at your own endpoint |
+| want to check the plumbing without a model | `python tools/mock_chat_server.py --port 8765` then `CHAT_BASE_URL=http://127.0.0.1:8765/v1 python run_test_conversations.py --out /tmp/mock`. Replies are synthetic: a **plumbing** check, never a teaching-quality check |

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-17T02:13:16",
+  "generated_at": "2026-09-17T18:12:54",
   "model": "gpt-5.6-luna",
-  "system_prompt_chars": 2957,
+  "system_prompt_chars": 6146,
   "conversations": [
     {
       "id": "1-maths-concept",
@@ -42,6 +42,38 @@
       "turns": 2,
       "md": "5-examen-reponse.md",
       "json": "5-examen-reponse.json"
+    },
+    {
+      "id": "6-multi-tour-erreur",
+      "title": "Multi-tour — l'élève se trompe (limites, mémoire du contexte)",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 4,
+      "md": "6-multi-tour-erreur.md",
+      "json": "6-multi-tour-erreur.json"
+    },
+    {
+      "id": "7-eleve-decourage",
+      "title": "Élève découragé — « ma fahemch walou, khasni no9ta »",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 3,
+      "md": "7-eleve-decourage.md",
+      "json": "7-eleve-decourage.json"
+    },
+    {
+      "id": "8-eleve-obsine-reponse-examen",
+      "title": "Élève obstiné — réclame la réponse d'examen 3 fois de suite",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 4,
+      "md": "8-eleve-obsine-reponse-examen.md",
+      "json": "8-eleve-obsine-reponse-examen.json"
+    },
+    {
+      "id": "9-hors-programme",
+      "title": "Hors programme — questions en dehors du curriculum",
+      "status": "INCOMPLETE — ChatError",
+      "turns": 3,
+      "md": "9-hors-programme.md",
+      "json": "9-hors-programme.json"
     }
   ]
 }

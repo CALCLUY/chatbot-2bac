@@ -2,7 +2,7 @@
 
 - **Scénario** : `2-physique-exercice`
 - **Objectif** : Accompagner un élève sur un exercice sans donner la réponse : il doit être guidé.
-- **Généré le** : 2026-09-17T02:12:34
+- **Généré le** : 2026-09-17T18:10:33
 - **Modèle** : `gpt-5.6-luna`
 - **Filtres** : matière = Physique-Chimie, chapitre = (aucun)
 - **Statut** : INCOMPLETE — ChatError

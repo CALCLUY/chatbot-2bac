@@ -1,0 +1,169 @@
+[
+  {
+    "id": "1-maths-concept",
+    "title": "Mathématiques — question de concept (limites)",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 1,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Analogie / image mentale AVANT la définition formelle (règle exemples concrets).",
+      "Une seule idée nouvelle : idée intuitive -> vérification -> (tour suivant) formule epsilon/alpha.",
+      "Darija en alphabet latin + termes techniques en français."
+    ]
+  },
+  {
+    "id": "2-physique-exercice",
+    "title": "Physique-Chimie — énoncé d'exercice (ondes mécaniques)",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 1,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Guide sans répondre : les questions 1 et 2 ne doivent PAS être résolues d'un coup.",
+      "Au moins une image mentale (corde, vibration) avant le terme technique."
+    ]
+  },
+  {
+    "id": "3-svt-question",
+    "title": "SVT — question de cours (méiose et réduction chromatique)",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 1,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Méiose ET réduction chromatique ET comparaison mitose ne doivent PAS être traitées dans le même message (une idée à la fois).",
+      "Analogie concrète avant la définition."
+    ]
+  },
+  {
+    "id": "4-pas-compris",
+    "title": "Reformulation — « je n'ai pas compris »",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 2,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Le tour 2 reformule avec une AUTRE approche (pas les mêmes mots que le tour 1).",
+      "Le tour 2 est plus court / plus simple, pas plus long."
+    ]
+  },
+  {
+    "id": "5-examen-reponse",
+    "title": "Demande directe d'une réponse d'examen (SVT bac 2024)",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 2,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Tour 1 : demande ce que l'élève a déjà essayé, ne donne rien.",
+      "Tour 2 : l'élève demande explicitement la correction -- mais a-t-il suivi 2 échanges de guidage ? Sinon le prof doit encore tenir."
+    ]
+  },
+  {
+    "id": "6-multi-tour-erreur",
+    "title": "Multi-tour — l'élève se trompe (limites, mémoire du contexte)",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 4,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Tour 2 : corrige l'erreur (0) sans condescendance et sans valider la fausse règle.",
+      "Tour 3 : ne valide PAS la sur-généralisation (« toute limite avec numérateur nul vaut 0 »).",
+      "Tour 4 : se souvient de l'erreur précise du tour 2 sans que l'élève la répète (MÉMOIRE DU CONTEXTE)."
+    ]
+  },
+  {
+    "id": "7-eleve-decourage",
+    "title": "Élève découragé — « ma fahemch walou, khasni no9ta »",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 3,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Reste encourageant sous la frustration, jamais condescendant.",
+      "NE lâche PAS la réponse complète pour calmer l'élève ; réduit la difficulté à une seule petite étape.",
+      "Nouvelle analogie au tour 2/3 plutôt que répétition."
+    ]
+  },
+  {
+    "id": "8-eleve-obsine-reponse-examen",
+    "title": "Élève obstiné — réclame la réponse d'examen 3 fois de suite",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 4,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Tours 1-3 : tient bon, aucune correction complète malgré « wrini l7al » au tour 3.",
+      "Chaque tour avance d'une étape du processus (essais -> indice -> une étape guidée).",
+      "Tour 4 : révèle enfin, mais ÉTAPE PAR ÉTAPE, jamais le résultat brut."
+    ]
+  },
+  {
+    "id": "9-hors-programme",
+    "title": "Hors programme — questions en dehors du curriculum",
+    "status": "INCOMPLETE — ChatError",
+    "turns": 3,
+    "findings": [
+      {
+        "rule": "transcript complet",
+        "turn": 0,
+        "ok": false,
+        "evidence": "statut = INCOMPLETE — ChatError"
+      }
+    ],
+    "manual": [
+      "Dit clairement que c'est hors programme, sans inventer de chiffres ou de faits.",
+      "Ramène l'élève vers Maths / Physique-Chimie / SVT.",
+      "N'appose PAS de [Source N] sur du contenu hors sujet."
+    ]
+  }
+]

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Run the 5 scripted tutor conversations and save the transcripts.
+"""Run the 9 scripted tutor conversations and save the transcripts.
 
-This is the teaching-quality review harness: five conversations that between
-them cover a maths concept, a physics exercise, an SVT question, a
+This is the teaching-quality review harness. Nine conversations: the five
+original scenarios (a maths concept, a physics exercise, an SVT question, a
 "je n'ai pas compris" follow-up, and a student demanding an exam answer
-outright (to confirm the tutor guides instead of just answering).
+outright), plus four v2-prompt edge cases: a multi-turn conversation where the
+student makes a mistake (context memory + patience), a discouraged student
+("ma fahemch walou, khasni no9ta"), a stubborn student who insists on the exam
+answer three times in a row, and questions entirely outside the curriculum.
 
     python run_test_conversations.py                 # writes transcripts/
     python run_test_conversations.py --only svt      # just one scenario
@@ -84,13 +87,101 @@ CONVERSATIONS: list[dict] = [
     {
         "id": "5-examen-reponse",
         "title": "Demande directe d'une réponse d'examen (SVT bac 2024)",
-        "goal": "Le prof doit d'abord guider, et ne donner la correction complète que si l'élève insiste.",
+        "goal": "Le prof doit d'abord guider. ATTENTION — contrat modifié par le prompt v2 : "
+                "l'insistance seule ne suffit PLUS. La règle 4 exige >= 2 échanges de guidage "
+                "ET une demande explicite. Ici l'élève ne suit aucun guidage (2 simples "
+                "demandes), donc la correction complète ne doit PAS être révélée, même au "
+                "tour 2. Les tours sont inchangés par rapport à la v1 pour rester comparable.",
         "matiere": "SVT",
         "chapitre": None,
         "turns": [
             "Prof donne-moi direct la réponse de l'exercice 1 du bac SVT 2024 session normale : "
             "définir méiose et caryotype. J'ai pas le temps de réfléchir.",
             "Oui mais moi je veux juste la correction complète s'il te plaît, donne-la moi directement.",
+        ],
+    },
+
+    # --------------------------------------------------------------------- #
+    # Edge cases added for the v2 prompt review (scénarios 6-9).
+    # Each one targets a rule that the v2 system prompt introduced or
+    # tightened; the `goal` field states the acceptance criterion to check.
+    # --------------------------------------------------------------------- #
+    {
+        "id": "6-multi-tour-erreur",
+        "title": "Multi-tour — l'élève se trompe (limites, mémoire du contexte)",
+        "goal": "Vérifier la MÉMOIRE DU CONTEXTE et la PATIENCE : l'élève propose une "
+                "réponse fausse, puis sur-généralise à partir de son erreur. Le prof doit "
+                "(a) corriger sans condescendance, (b) ne pas valider la fausse règle, "
+                "(c) au dernier tour se souvenir de l'erreur précise du 2e tour sans que "
+                "l'élève la répète. Échec si le prof perd le fil ou se répète mot pour mot.",
+        "matiere": "Mathématiques",
+        "chapitre": None,
+        "turns": [
+            "Saha prof, 3endi had l'exercice : $\\lim_{x \\to 2} \\frac{x^2 - 4}{x - 2}$. "
+            "Kifach nbda ?",
+            "Ana jarrabt : 7it $x^2 - 4$ kat3ti 0 f $x = 2$, donc l jawab howa 0. Wach s7i7 ?",
+            "Ah... walakin mazal ma fhemtch 3lach. Wach kol limite li l numérateur dialha "
+            "kayt3adel kat3ti 0 ? 7ta f $\\lim_{x \\to 3} \\frac{x^2 - 9}{x - 3}$ ?",
+            "Safi daba fhemt. T9der t3awed liya chno kan l'ghalat diali l'awal, w chno "
+            "l jawab l7a9i9i, bach ma n3awdouch f l'examen ?",
+        ],
+    },
+    {
+        "id": "7-eleve-decourage",
+        "title": "Élève découragé — « ma fahemch walou, khasni no9ta »",
+        "goal": "Vérifier la PATIENCE sous frustration : l'élève abandonne et réclame juste "
+                "la note. Le prof doit rester encourageant, NE PAS lâcher la réponse "
+                "complète pour calmer la frustration, et réduire encore la difficulté "
+                "(une seule petite étape, une autre analogie). Échec s'il donne le résultat "
+                "final ou s'il répète la même explication.",
+        "matiere": "Mathématiques",
+        "chapitre": None,
+        "turns": [
+            "Prof, 3endi devoir f les limites : $\\lim_{x \\to +\\infty} "
+            "\\frac{3x^2 - x + 1}{2x^2 + 5}$. Chno ndir ?",
+            "Ma fahemch walou, khasni no9ta. 3tini ghir l jawab safi, ma 3endi wa9t.",
+            "Wallah ma 9adr nkamel, kolchi sa3b 3liya. Ghadi n9elleb 3la l7al f internet.",
+        ],
+    },
+    {
+        "id": "8-eleve-obsine-reponse-examen",
+        "title": "Élève obstiné — réclame la réponse d'examen 3 fois de suite",
+        "goal": "Vérifier que le PROCESSUS EN 4 ÉTAPES tient : 3 demandes insistantes de "
+                "suite (dont un « wrini l7al » explicite au tour 3) ne doivent PAS "
+                "déclencher la correction complète, parce que l'élève n'a encore suivi "
+                "aucun échange de guidage. Au tour 4 seulement — après avoir proposé sa "
+                "propre tentative ET redemandé la correction — le prof peut révéler la "
+                "solution, étape par étape. Échec s'il cède avant le tour 4, ou s'il donne "
+                "le résultat brut au tour 4.",
+        "matiere": "Mathématiques",
+        "chapitre": None,
+        "turns": [
+            "Prof, 3tini direct l jawab dial l'exercice 3 dial l'examen national math 2023 "
+            "session normale, question 1-b) : $(1 - i)(1 + i\\sqrt{3}) = "
+            "2\\sqrt{2}e^{i\\frac{\\pi}{12}}$. Ma 3endi wa9t n'feker.",
+            "La, ma bghitch n'feker w ma bghitch l'indices. 3tini l jawab, safi.",
+            "Nta kat3awd nfs l7aj. Ana kanbghi l jawab w bass. Wrini l7al daba.",
+            "Wakha... jarrabt : $1 - i = \\sqrt{2}e^{-i\\frac{\\pi}{4}}$ w "
+            "$1 + i\\sqrt{3} = 2e^{i\\frac{\\pi}{3}}$. Wach hada s7i7 ? Daba wrini "
+            "l correction kamla 3afak.",
+        ],
+    },
+    {
+        "id": "9-hors-programme",
+        "title": "Hors programme — questions en dehors du curriculum",
+        "goal": "Vérifier l'HONNÊTETÉ : crypto/finance, astronomie (hors programme 2bac), "
+                "puis programmation. Le prof doit dire clairement que ce n'est PAS dans le "
+                "programme fourni et ne PAS inventer de réponse, puis ramener l'élève vers "
+                "les Maths / Physique-Chimie / SVT. Échec s'il répond avec des chiffres, "
+                "des faits non sourcés, ou des [Source N] plaqués sur du hors-programme.",
+        "matiere": None,
+        "chapitre": None,
+        "turns": [
+            "Prof, ch7al kayswa l bitcoin lyoum ? W wach n9der ndkhol l l'crypto b 500 dh "
+            "w nreba7 ?",
+            "W 3afak, ch7al mn kawkab kayn f l'mjara dialna ? W kifach khdam télescope "
+            "James Webb b detail ?",
+            "Okay wakha. Walakin 3lemni Python mn l'awal, bghit n'welli développeur.",
         ],
     },
 ]
@@ -208,16 +299,59 @@ def run_conversation(spec: dict, session_factory, top_k: int | None) -> dict:
     return record
 
 
+# --------------------------------------------------------------------------- #
+# Preflight
+# --------------------------------------------------------------------------- #
+def preflight(timeout: float = 20.0) -> tuple[bool, str]:
+    """One cheap probe of the chat endpoint, so a dead relay is reported in
+    seconds instead of after 21 turns x 3 retries each.
+
+    Returns (reachable, human-readable message). Never raises.
+    """
+    from rag.llm import ChatClient, ChatError
+
+    client = ChatClient(timeout=timeout, max_retries=0)
+    try:
+        reply = client.complete([{"role": "user", "content": "ping"}])
+        return True, f"endpoint reachable (model replied: {reply.model})"
+    except ChatError as exc:
+        return False, str(exc)
+    except Exception as exc:                          # noqa: BLE001
+        return False, f"{type(exc).__name__}: {exc}"
+
+
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Run and save the 5 tutor test conversations.")
+    parser = argparse.ArgumentParser(description="Run and save the 9 tutor test conversations.")
     parser.add_argument("--only", default=None, help="run just one scenario id (substring match)")
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--out", type=Path, default=OUT_DIR)
+    parser.add_argument("--skip-preflight", action="store_true",
+                        help="do not probe the chat endpoint before running")
+    parser.add_argument("--require-live", action="store_true",
+                        help="abort instead of writing INCOMPLETE transcripts when the "
+                             "endpoint is unreachable")
     args = parser.parse_args(argv)
 
     if DEFAULT_CONFIG.chat_key_is_placeholder():
         print("CHAT_API_KEY is not set. Copy .env.example to .env and fill it in.")
         return 1
+
+    if not args.skip_preflight:
+        ok, message = preflight()
+        if ok:
+            print(f"[preflight] OK — {message}")
+        else:
+            print(f"[preflight] FAILED — {message}")
+            print(f"[preflight]   CHAT_BASE_URL = {DEFAULT_CONFIG.chat_base_url}")
+            print(f"[preflight]   CHAT_MODEL    = {DEFAULT_CONFIG.chat_model}")
+            print("[preflight] Set a reachable OpenAI-compatible endpoint in .env "
+                  "(CHAT_BASE_URL / CHAT_API_KEY / CHAT_MODEL).")
+            if args.require_live:
+                print("[preflight] --require-live given, aborting. Nothing was written.")
+                return 1
+            print("[preflight] Continuing anyway: transcripts will be written INCOMPLETE, "
+                  "with the grounding context intact, so you can review it now and re-run "
+                  "once the endpoint answers.")
 
     selected = CONVERSATIONS
     if args.only:
