@@ -28,7 +28,6 @@ jobs:
       - name: Inject Gemini API key
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          CHAT_API_KEY: ${{ secrets.CHAT_API_KEY }}
         run: |
           python3 - <<'PY'
           import os
