@@ -11,3 +11,6 @@ venv/
 # Data & generated artefacts (corpus clone, vector index, chunk dump)
 # Keep these out of git: they are downloaded / rebuilt by `python ingest.py`.
 data/
+
+# Runtime logs (darija anti-drift retry log, see chat.py)
+logs/

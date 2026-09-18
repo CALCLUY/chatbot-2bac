@@ -21,19 +21,29 @@ In-chat commands:
 The tutor's system prompt lives in ``rag/prompts.py`` -- edit it there.
 Every answer is followed by the sources it was grounded on, for your own
 verification (real students will not see that block).
+
+Anti-drift safeguard (darija check)
+    The model tends to drift back to pure formal French on long
+    conversations. Every generated answer is therefore scanned for darija
+    markers (DARIJA_MARKERS); if fewer than the minimum (CHAT_DARIJA_MIN_MARKERS,
+    default 2) distinct markers are found, the completion is retried ONCE
+    with an explicit darija reminder appended. Each retry is logged to the
+    console and to logs/darija_retry_log.jsonl so you can measure how often
+    the model drifts and whether the retry fixes it.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
-from rag.config import DEFAULT_CONFIG, Config
+from rag.config import DEFAULT_CONFIG, Config, REPO_ROOT
 from rag.display import _rule
 from rag.llm import ChatClient, ChatError
 from rag.prompts import build_messages
@@ -55,6 +65,113 @@ FOLLOWUP_RE = re.compile(
     re.IGNORECASE,
 )
 MIN_CONTENT_WORDS = 5
+
+
+# --------------------------------------------------------------------------- #
+# Darija-mix guard — code-level safeguard against drifting back to pure French
+# --------------------------------------------------------------------------- #
+# The system prompt (rag/prompts.py) asks for a darija-French mix, but on long
+# conversations the model tends to drift back to pure formal French. As a
+# backstop, every generated answer is scanned for common darija markers
+# (Latin-alphabet darija, the same spelling the students type). When fewer
+# than DARIJA_MIN_MARKERS *distinct* markers are present, the answer is
+# treated as a failed generation and the completion is retried ONCE with an
+# explicit reminder appended. Every retry is logged to the console and to a
+# JSONL file so the drift rate and the retry success rate stay measurable:
+#
+#     logs/darija_retry_log.jsonl   (override: CHAT_DARIJA_RETRY_LOG)
+#
+# Threshold override: CHAT_DARIJA_MIN_MARKERS (default 2).
+
+DARIJA_MARKERS: tuple[str, ...] = (
+    # Base list — the common markers every tutor reply should normally show
+    "wach", "daba", "bghiti", "mzyan", "khouya", "rak", "3andek", "ghadi",
+    "bla", "chwiya", "hadi", "dyal", "kayn", "walakin", "bezzaf",
+    # Greetings / interjections
+    "saha", "safi", "wakha", "safti",
+    # "visualise" prompts (the v2 pedagogy uses them a lot)
+    "tsawwar", "tsawwri", "tsawwer",
+    # understanding / not understanding
+    "fhemt", "fhemti", "fhem", "fahem", "fahemna", "3reft", "3refti", "machi",
+    # question words
+    "chno", "chnou", "kifach", "3lach", "3la", "3lik", "3li", "3lina",
+    # pronouns / demonstratives / adverbs of place
+    "nta", "nti", "ana", "ntoum", "howa", "haka", "hna", "hada", "hado",
+    # common verbs (Latin-alphabet darija)
+    "dir", "dirla", "dirha", "dirli", "bghit", "bghina", "bghitna", "9der",
+    "t9der", "n9der", "9elleb", "9alleb", "3tik", "3tini", "t3tik", "awed",
+    "3awed", "3lemni", "3lem", "3alna", "9dem", "9dim", "9el", "7it",
+    "9raf", "3rf",
+    # connectors / particles / fillers
+    "7ba", "7ta", "wala", "ola", "ghir", "bss", "koulchi", "koulma", "chi",
+    "walou", "bhal", "bzabt", "zbzt",
+    # adverbs / intensifiers / size
+    "mezyan", "mzyana", "kter", "bzzaf", "qrib", "9rib", "kbir", "kbira",
+    "sghir", "sghira", "wahd", "wahda", "wahed",
+    # problems / mistakes / needs
+    "ghlta", "ghalat", "mouchkil", "mouchkila", "khas", "khass", "khasek",
+    "khassni", "khassk",
+    # exam / study vocabulary (darija form)
+    "l7al", "jawab", "s7i7", "sahit", "doyour", "3amalat", "l7a9i9i",
+    # possession / address
+    "3andi", "3ndek", "3ndi", "3afak", "afak",
+    # "simple" (the tutor promises "bsit" examples)
+    "bsit", "bsita",
+    # time
+    "lyoum", "ghedda", "wa9t",
+)
+
+# Pre-compiled word-boundary matcher per marker. \b treats digits as word
+# chars, so "3andek" / "9der" match their latin-alphabet darija spelling.
+_DARIJA_MARKER_RES: dict[str, re.Pattern[str]] = {
+    m: re.compile(rf"\b{re.escape(m)}\b") for m in DARIJA_MARKERS
+}
+
+DARIJA_RETRY_REMINDER = (
+    "Ta dernière réponse était trop formelle et 100% française — reformule-la "
+    "en mélangeant plus de darija, comme dans les exemples donnés dans tes "
+    "instructions."
+)
+
+DARIJA_RETRY_LOG = Path(
+    os.getenv("CHAT_DARIJA_RETRY_LOG", str(REPO_ROOT / "logs" / "darija_retry_log.jsonl"))
+)
+
+
+def darija_min_markers() -> int:
+    """Minimum number of DISTINCT darija markers an answer must contain."""
+    try:
+        return max(1, int(os.getenv("CHAT_DARIJA_MIN_MARKERS", "2")))
+    except ValueError:
+        return 2
+
+
+def find_darija_markers(text: str) -> list[str]:
+    """Return the distinct darija markers (from DARIJA_MARKERS) present in *text*.
+
+    Matching is case-insensitive on whole words, so 'wach' inside 'wach
+    fhemti' counts but a French word that merely contains the letters does not.
+    """
+    if not text:
+        return []
+    lowered = text.lower()
+    return [m for m, rx in _DARIJA_MARKER_RES.items() if rx.search(lowered)]
+
+
+def log_darija_retry(record: dict) -> None:
+    """Log one retry event: JSONL line (for stats) + console line (visible)."""
+    line = {"at": datetime.now().isoformat(timespec="seconds"), **record}
+    try:
+        DARIJA_RETRY_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with DARIJA_RETRY_LOG.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(line, ensure_ascii=False) + "\n")
+    except OSError as exc:  # logging must never break the conversation
+        print(f"  [darija-check] warning — could not write retry log: {exc}")
+    first = record.get("first_markers", [])
+    print(f"  [darija-check] R1 trop formelle ({len(first)} marker(s) darija : "
+          f"{', '.join(first) if first else 'aucun'} — minimum "
+          f"{record.get('min_markers', darija_min_markers())}) "
+          f"→ re-génération avec rappel")
 
 
 def build_retrieval_query(question: str, history: Sequence[dict]) -> str:
@@ -109,17 +226,80 @@ class TutorSession:
 
     def ask(self, question: str, matiere: str | None = None, chapitre: str | None = None,
             top_k: int | None = None) -> dict:
-        """Answer one student question. Returns a dict with answer + sources."""
+        """Answer one student question. Returns a dict with answer + sources.
+
+        Includes a ``darija_check`` field: how many darija markers the answer
+        contained and whether the anti-drift retry was triggered (see
+        DARIJA_MARKERS above).
+        """
         hits, messages = self.prepare(question, matiere=matiere, chapitre=chapitre, top_k=top_k)
+        min_markers = darija_min_markers()
+        turn_index = sum(1 for t in self.history if t["role"] == "user") + 1
 
         answer = self.client.complete(messages).content
+        first_markers = find_darija_markers(answer)
+        darija_check: dict = {
+            "min_markers": min_markers,
+            "attempt": 1,
+            "retried": False,
+            "markers": first_markers,
+            "outcome": "ok",
+        }
+
+        if len(first_markers) < min_markers:
+            # --- anti-drift safeguard: the answer is (almost) pure French ---
+            log_darija_retry({
+                "model": self.client.model,
+                "turn_index": turn_index,
+                "question_preview": question[:120],
+                "min_markers": min_markers,
+                "first_markers": first_markers,
+            })
+            darija_check["retried"] = True
+            darija_check["first_markers"] = first_markers
+            # The reminder refers to the model's OWN last reply, so the failed
+            # answer is replayed to it as an assistant turn first.
+            retry_messages = messages + [
+                {"role": "assistant", "content": answer},
+                {"role": "user", "content": DARIJA_RETRY_REMINDER},
+            ]
+            try:
+                answer = self.client.complete(retry_messages).content
+            except ChatError as exc:
+                # The first (formal) answer is still a usable answer: keep it
+                # rather than losing the whole turn to a failed retry call.
+                darija_check["outcome"] = "retry_api_error_fallback"
+                darija_check["retry_error"] = str(exc)
+                log_darija_retry({
+                    "model": self.client.model,
+                    "turn_index": turn_index,
+                    "question_preview": question[:120],
+                    "outcome": "retry_api_error_fallback",
+                    "error": str(exc),
+                })
+            else:
+                from_markers = find_darija_markers(answer)
+                darija_check["attempt"] = 2
+                darija_check["markers"] = from_markers
+                darija_check["outcome"] = ("retry_passed"
+                                           if len(from_markers) >= min_markers
+                                           else "retry_still_failed")
+                log_darija_retry({
+                    "model": self.client.model,
+                    "turn_index": turn_index,
+                    "question_preview": question[:120],
+                    "first_markers": first_markers,
+                    "second_markers": from_markers,
+                    "outcome": darija_check["outcome"],
+                })
 
         # Keep the history clean: store the bare question, not the grounded
         # prompt, so old passages are not replayed on every turn.
         self.history.append({"role": "user", "content": question})
         self.history.append({"role": "assistant", "content": answer})
 
-        return {"question": question, "answer": answer, "sources": hits, "messages": messages}
+        return {"question": question, "answer": answer, "sources": hits,
+                "messages": messages, "darija_check": darija_check}
 
     def reset(self) -> None:
         self.history.clear()

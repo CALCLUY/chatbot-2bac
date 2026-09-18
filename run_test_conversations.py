@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
-"""Run the 9 scripted tutor conversations and save the transcripts.
+"""Run the 10 scripted tutor conversations and save the transcripts.
 
-This is the teaching-quality review harness. Nine conversations: the five
+This is the teaching-quality review harness. Ten conversations: the five
 original scenarios (a maths concept, a physics exercise, an SVT question, a
 "je n'ai pas compris" follow-up, and a student demanding an exam answer
-outright), plus four v2-prompt edge cases: a multi-turn conversation where the
+outright), four v2-prompt edge cases: a multi-turn conversation where the
 student makes a mistake (context memory + patience), a discouraged student
 ("ma fahemch walou, khasni no9ta"), a stubborn student who insists on the exam
-answer three times in a row, and questions entirely outside the curriculum.
+answer three times in a row, and questions entirely outside the curriculum —
+plus scenario 10, a 10-turn conversation on one math topic (limites) built
+specifically to test the darija-French mix over a LONG conversation: the
+student follows up, makes a mistake, says "je n'ai pas compris", and asks a
+couple of questions in plain French.
+
+Each saved turn also carries the output of the code-level darija check
+(chat.py: DARIJA_MARKERS): how many darija markers the answer contained and
+whether the anti-drift retry was triggered and fixed it.
 
     python run_test_conversations.py                 # writes transcripts/
     python run_test_conversations.py --only svt      # just one scenario
+    python run_test_conversations.py --only 6 --only 7   # a subset
     python run_test_conversations.py --top-k 8       # ground on more chunks
 
 If the chat API cannot be reached the script still writes each transcript,
@@ -184,6 +193,69 @@ CONVERSATIONS: list[dict] = [
             "Okay wakha. Walakin 3lemni Python mn l'awal, bghit n'welli développeur.",
         ],
     },
+
+    # --------------------------------------------------------------------- #
+    # Drift test (added with the darija-reinforcement prompt section).
+    # A single LONG conversation (10 turns) on one Mathématiques topic —
+    # les limites — where the student follows up, makes a mistake (turn 5),
+    # says "je n'ai pas compris" (turn 7) and asks several questions in
+    # plain French (turns 3, 6, 9). Acceptance criterion for the review:
+    # the darija-French mix must hold from turn 1 to turn 10; if it drifts
+    # back to pure French, the darija_check field of each turn shows at
+    # which turn it happened and whether the retry safeguard caught it.
+    # --------------------------------------------------------------------- #
+    {
+        "id": "10-drift-long-limites",
+        "title": "Test de drift — conversation longue (10 tours, limites en Mathématiques)",
+        "goal": "Vérifier que le MÉLANGE DARIJA-FRANÇAIS tient sur une conversation "
+                "longue (10 tours), et non pas seulement sur 1-2 échanges. L'élève "
+                "pose des questions de suivi, se trompe (tour 5), dit « j'ai pas "
+                "compris » (tour 7) et pose plusieurs questions en français "
+                "standard (tours 3, 6, 9). Échec si un prof-réponse devient un "
+                "paragraphe français pur sans expression darija — y compris vers "
+                "la fin de la conversation. Le champ darija_check de chaque tour "
+                "(marqueurs détectés, retry déclenché, résultat du retry) permet "
+                "de localiser exactement le tour où le drift commence.",
+        "matiere": "Mathématiques",
+        "chapitre": None,
+        "turns": [
+            # T1 — ouverture, mélange darija/français (la question habituelle)
+            "Saha prof, nta l7in. 3andi s7i7 b les limites, ma 9drtch n3ref kifach "
+            "n7ssbha. T9der tjib l'idée m3aya 9bel les calculs ?",
+            # T2 — question de suivi en darija
+            "Tsawwar m3aya ok. Walakin chno 3la3t l'idée hadi m3a les limites d'une "
+            "fonction f l'examen ? Kifach katban f les exercices ?",
+            # T3 — question en FRANÇAIS standard (test: la réponse doit rester darija-français)
+            "En fait, j'ai une question : pourquoi on ne peut pas toujours remplacer "
+            "x par sa valeur dans l'expression ? Ce n'est pas très logique pour moi.",
+            # T4 — suivi en darija avec expression concrète
+            "Wakha. Daba chouf hada l'exemple : $\\lim_{x \\to 2} \\frac{x^2 - 4}{x - 2}$. "
+            "7it l numérateur w l dénominateur kayt3adelu 3la 0, chno ndir f had l7ala?",
+            # T5 — l'élève SE TROMPE (doit être corrigé sans condescendance)
+            "Ahh ana jarrabt : 7it l numérateur 0 w l dénominateur 0, donc l limite "
+            "howa 0. Wach s7i7 had l jawab ? Sana khassni njawb hadchi f l'examen.",
+            # T6 — question en FRANÇAIS standard (2e question en français)
+            "Ah d'accord, c'est une forme indéterminée. Donc est-ce que c'est toujours "
+            "la même méthode quand on a 0/0, ou il y a des cas différents ?",
+            # T7 — « je n'ai pas compris » : le prof DOIT changer d'approche
+            "Franchement, j'ai pas compris l'explication dial la factorisation. Kifach "
+            "twere9 $x^2 - 4$ bach nchoufo f l'exercice ? Reexplique ghir hadchi b "
+            "wa7ed l'exemple bsit.",
+            # T8 — suivi en darija vers +infini
+            "Safi daba fhemt had l7aja. W chno y9en $+\\infty$ f "
+            "$\\lim_{x \\to +\\infty}$ ? 9ed s7i7 3la les polynômes, kifach n7ssb "
+            "la limite li l degrés ma kayt3adelouch ?",
+            # T9 — question en FRANÇAIS standard (3e question en français)
+            "Et pour un polynôme de degré 2 sur degré 2, par exemple "
+            "(3x² - x + 1) / (2x² + 5), la méthode c'est de diviser le numérateur et "
+            "le dénominateur par x² ? Est-ce que ça marche toujours quand les degrés "
+            "sont égaux ?",
+            # T10 — l'élève résume lui-même, demande de la pratique
+            "Wakha prof, daba 9olt l7al mn rasi: 9ed les degrés walo, l limite howa "
+            "l rapport dial les coefficients dial l plus grande puissance. S7i7 hadchi "
+            "li fhemt? Bghit n'3awed 3la 2-3 exercices bach tkoun 9ayna s7i7 l'examen.",
+        ],
+    },
 ]
 
 
@@ -235,6 +307,7 @@ def build_markdown(record: dict) -> str:
         if turn.get("error"):
             out += [f"**Erreur API :** `{turn['error']}`", ""]
         out += ["## 👨‍🏫 Prof", "", turn.get("answer") or "_aucune réponse_", ""]
+        out += render_darija_check_md(turn.get("darija_check"))
         out += ["### Sources utilisées pour cette réponse", ""]
         out += [render_sources_md(turn["sources"]), ""]
         out += ["---", ""]
@@ -260,11 +333,13 @@ def run_conversation(spec: dict, session_factory, top_k: int | None) -> dict:
 
     for question in spec["turns"]:
         print(f"\n🧑 ÉLÈVE : {question}\n")
+        darija_check = None
         try:
             result = session.ask(question, matiere=spec["matiere"],
                                  chapitre=spec.get("chapitre"), top_k=top_k)
             answer, error = result["answer"], None
             sources = result["sources"]
+            darija_check = result.get("darija_check")
             print("👨‍🏫 PROF :")
             for line in answer.split("\n"):
                 print(f"  {line}" if line.strip() else "")
@@ -290,6 +365,7 @@ def run_conversation(spec: dict, session_factory, top_k: int | None) -> dict:
             "question": question,
             "answer": answer,
             "error": error,
+            "darija_check": darija_check,
             "sources": [
                 {"score": round(h.score, 6), "content": h.content, "metadata": h.metadata}
                 for h in sources
@@ -297,6 +373,75 @@ def run_conversation(spec: dict, session_factory, top_k: int | None) -> dict:
         })
 
     return record
+
+
+# --------------------------------------------------------------------------- #
+# Darija-check rendering (anti-drift safeguard stats, see chat.py)
+# --------------------------------------------------------------------------- #
+def render_darija_check_md(check: dict | None) -> list[str]:
+    """One line under a prof answer describing the darija-marker check."""
+    if not check:
+        return []
+    if not check.get("retried"):
+        return [f"_(darija-check : {len(check.get('markers', []))} marker(s) darija — "
+                f"OK, pas de retry)_", ""]
+    first = check.get("first_markers", [])
+    first_names = "(" + ", ".join(first) + ")" if first else "aucun"
+    if check.get("outcome") == "retry_api_error_fallback":
+        return [f"_(darija-check : {len(first)} marker(s) — retry déclenché, mais l'appel "
+                f"de re-génération a échoué → réponse 1 conservée)_", ""]
+    second = check.get("markers", [])
+    verdict = {"retry_passed": "retry corrigé ✅",
+               "retry_still_failed": "retry ÉCHOUÉ (toujours < minimum) ⚠️"}.get(
+                   check.get("outcome", ""), "retry déclenché")
+    return [f"_(darija-check : {len(first)} marker(s) au 1er essai {first_names} "
+            f"→ **RETRY DÉCLENCHÉ** — 2e essai : {len(second)} marker(s), {verdict})_", ""]
+
+
+def darija_stats(records: list[dict]) -> str:
+    """One-paragraph summary of the darija-check across all saved turns."""
+    total = retried = passed = still_failed = fallback = 0
+    drifting_turns: list[str] = []
+    for rec in records:
+        for i, turn in enumerate(rec["turns"], start=1):
+            check = turn.get("darija_check")
+            if not check or not check.get("retried"):
+                total += 1
+                continue
+            total += 1
+            retried += 1
+            where = f"{rec['id']} · tour {i}"
+            if check.get("outcome") == "retry_passed":
+                passed += 1
+            elif check.get("outcome") == "retry_still_failed":
+                still_failed += 1
+                drifting_turns.append(where)
+            else:
+                fallback += 1
+                drifting_turns.append(where + " (retry API error)")
+    lines = [
+        "## Darija-check (safeguard anti-drift)",
+        "",
+        f"- Tours analysés : **{total}**",
+        f"- Retry déclenché : **{retried}**"
+        + (f" ({retried / total:.0%})" if total else ""),
+    ]
+    if retried:
+        lines += [
+            f"-  - corrigé au 2e essai : **{passed}**",
+            f"-  - échec persistant (drift réel non corrigé) : **{still_failed}**",
+            f"-  - erreur API pendant le retry (réponse 1 conservée) : **{fallback}**",
+        ]
+        if drifting_turns:
+            lines += ["- Tours en échec / à relire : " + ", ".join(drifting_turns)]
+        else:
+            lines += ["- Aucun tour en échec : toutes les réponses ont fini avec "
+                      "assez de marqueurs darija."]
+    else:
+        lines += ["- Aucune réponse n'est passée sous le seuil : le modèle n'a pas "
+                  "dérivé vers le français pur sur ce lot."]
+    lines += [f"- Journal détaillé : `logs/darija_retry_log.jsonl`", ""]
+    return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------- #
@@ -321,8 +466,9 @@ def preflight(timeout: float = 20.0) -> tuple[bool, str]:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Run and save the 9 tutor test conversations.")
-    parser.add_argument("--only", default=None, help="run just one scenario id (substring match)")
+    parser = argparse.ArgumentParser(description="Run and save the 10 tutor test conversations.")
+    parser.add_argument("--only", action="append", default=None,
+                        help="run just these scenario ids (substring match); repeatable")
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--out", type=Path, default=OUT_DIR)
     parser.add_argument("--skip-preflight", action="store_true",
@@ -355,7 +501,7 @@ def main(argv=None) -> int:
 
     selected = CONVERSATIONS
     if args.only:
-        selected = [c for c in CONVERSATIONS if args.only in c["id"]]
+        selected = [c for c in CONVERSATIONS if any(needle in c["id"] for needle in args.only)]
         if not selected:
             print(f"No scenario matching {args.only!r}. Available: "
                   f"{', '.join(c['id'] for c in CONVERSATIONS)}")
@@ -366,9 +512,11 @@ def main(argv=None) -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     index: list[dict] = []
+    records: list[dict] = []
 
     for spec in selected:
         record = run_conversation(spec, factory, args.top_k)
+        records.append(record)
         md_path = args.out / f"{record['id']}.md"
         json_path = args.out / f"{record['id']}.json"
         md_path.write_text(build_markdown(record), encoding="utf-8")
@@ -377,11 +525,16 @@ def main(argv=None) -> int:
                       "turns": len(record["turns"]), "md": md_path.name, "json": json_path.name})
         print(f"\n  -> saved {md_path}")
 
+    # Anti-drift safeguard summary (see chat.py DARIJA_MARKERS).
+    stats_md = darija_stats(records)
+    print("\n" + stats_md)
+
     (args.out / "index.json").write_text(
         json.dumps({
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             "model": DEFAULT_CONFIG.chat_model,
             "system_prompt_chars": len(SYSTEM_PROMPT),
+            "darija_stats": stats_md,
             "conversations": index,
         }, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -393,6 +546,7 @@ def main(argv=None) -> int:
         f"- **Modèle** : `{DEFAULT_CONFIG.chat_model}`",
         f"- **System prompt** : `rag/prompts.py` ({len(SYSTEM_PROMPT)} caractères)",
         "",
+        stats_md,
     ]
     for item in index:
         body = (args.out / item["md"]).read_text(encoding="utf-8")

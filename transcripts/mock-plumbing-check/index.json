@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-09-18T03:31:52",
+  "model": "adaptive-mock",
+  "system_prompt_chars": 7683,
+  "darija_stats": "## Darija-check (safeguard anti-drift)\n\n- Tours analysés : **21**\n- Retry déclenché : **21** (100%)\n-  - corrigé au 2e essai : **21**\n-  - échec persistant (drift réel non corrigé) : **0**\n-  - erreur API pendant le retry (réponse 1 conservée) : **0**\n- Aucun tour en échec : toutes les réponses ont fini avec assez de marqueurs darija.\n- Journal détaillé : `logs/darija_retry_log.jsonl`\n",
+  "conversations": [
+    {
+      "id": "6-multi-tour-erreur",
+      "title": "Multi-tour — l'élève se trompe (limites, mémoire du contexte)",
+      "status": "OK",
+      "turns": 4,
+      "md": "6-multi-tour-erreur.md",
+      "json": "6-multi-tour-erreur.json"
+    },
+    {
+      "id": "7-eleve-decourage",
+      "title": "Élève découragé — « ma fahemch walou, khasni no9ta »",
+      "status": "OK",
+      "turns": 3,
+      "md": "7-eleve-decourage.md",
+      "json": "7-eleve-decourage.json"
+    },
+    {
+      "id": "8-eleve-obsine-reponse-examen",
+      "title": "Élève obstiné — réclame la réponse d'examen 3 fois de suite",
+      "status": "OK",
+      "turns": 4,
+      "md": "8-eleve-obsine-reponse-examen.md",
+      "json": "8-eleve-obsine-reponse-examen.json"
+    },
+    {
+      "id": "10-drift-long-limites",
+      "title": "Test de drift — conversation longue (10 tours, limites en Mathématiques)",
+      "status": "OK",
+      "turns": 10,
+      "md": "10-drift-long-limites.md",
+      "json": "10-drift-long-limites.json"
+    }
+  ]
+}
