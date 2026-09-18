@@ -212,7 +212,8 @@ Each turn:
    applied, MMR-diversified so you get a lesson + an example rather than six
    copies of one exam paper);
 2. builds `[system prompt] + [conversation history] + [<contexte> chunks + question]`;
-3. calls the chat-completions API;
+3. calls the Gemini ``generateContent`` API via the isolated client in
+   ``rag/llm.py`` (OpenAI-shaped ``messages`` in, plain text out);
 4. prints the answer **followed by the sources it drew from** (file, séance,
    score) for your own verification — real students would not see that block.
 
@@ -241,18 +242,50 @@ enforceable rule blocks:
 Scenarios 6–9 of the test harness exist specifically to stress these four
 blocks; `check_transcripts.py` turns the results into a review note.
 
-### Configuration
+### Configuration (Gemini)
 
-Copy `.env.example` to `.env` and fill in `CHAT_API_KEY`. Any OpenAI-compatible
-endpoint works — point `CHAT_BASE_URL` elsewhere for Ollama, OpenRouter, vLLM, …
+The tutor talks to **Google Gemini**, not an OpenAI-style chat-completions
+endpoint. Copy `.env.example` to `.env` and paste a real key:
+
+1. Open [Google AI Studio](https://aistudio.google.com/apikey) and create an API key.
+2. Put it on the `GEMINI_API_KEY=` line in `.env` (that file is git-ignored).
+3. Leave `GEMINI_MODEL_NAME` / `GEMINI_API_ENDPOINT` as they are unless you
+   need another model or a proxy.
+
+Do **not** put the key in source code. `.env.example` ships with an empty
+`GEMINI_API_KEY=`.
 
 | Variable | Default |
 |---|---|
-| `CHAT_BASE_URL` | `https://chatbotoauth-z3twqyf2.manus.space/v1` |
-| `CHAT_API_KEY` | `[CHAT_API_KEY_HERE]` |
-| `CHAT_MODEL` | `gpt-5.6-luna` |
+| `GEMINI_API_KEY` | *(empty — paste your key here)* |
+| `GEMINI_MODEL_NAME` | `gemini-3.8-flash` |
+| `GEMINI_API_ENDPOINT` | `https://generativelanguage.googleapis.com/v1beta` |
 | `CHAT_TEMPERATURE` | `0.7` |
 | `CHAT_TOP_K` | `6` (chunks used to ground each answer) |
+
+Add your `GEMINI_API_KEY` in `.env`, then run `python test_gemini_client.py`
+to verify the request mapping and response parsing (that script is **mock-
+mode**: it does not call Gemini). Once the key is set, run
+`python chat.py -q "c'est quoi une limite ?" --matiere Mathématiques` or
+`python run_test_conversations.py` for an end-to-end live check.
+
+The old OpenAI-style `CHAT_BASE_URL` / `CHAT_API_KEY` / `CHAT_MODEL` variables
+are commented out in `.env.example` and labelled **OLD — OpenAI, no longer
+used**.
+
+#### Gemini safety (SVT / biology)
+
+Default Gemini safety filters can block legitimate 2ème Bac SVT content
+(méiose, reproduction, caryotype, …) under `HARM_CATEGORY_SEXUALLY_EXPLICIT`.
+`rag/llm.py` therefore sends educational safety settings:
+`BLOCK_NONE` for sexually explicit, `BLOCK_ONLY_HIGH` for harassment / hate /
+dangerous content. If a curriculum question is still blocked, the error
+message includes `blockReason` / `finishReason` so you can see it.
+
+There is **no JSON step-structure** in this tutor: replies are spoken
+darija-French prose. The existing darija/document retry in `chat.py` is what
+re-asks the model when the first draft is unusable; that loop is unchanged
+and works with Gemini the same way (plain text in, plain text out).
 
 ### Test conversations — `python run_test_conversations.py`
 
@@ -317,18 +350,17 @@ be checked at all, since there is no model answer.
 
 ### Offline plumbing check
 
-`tools/mock_chat_server.py` is a fake OpenAI-compatible endpoint, for when the
-relay is unreachable:
+`python test_gemini_client.py` checks the Gemini request mapping and response
+parsing with a fake `generateContent` payload — no API key required.
+
+`tools/mock_chat_server.py` is still there as a fake HTTP endpoint for the
+retrieval → prompt path when you do not want to hit Gemini:
 
 ```bash
 python tools/mock_chat_server.py --port 8765 --log /tmp/mock_requests.jsonl
-CHAT_BASE_URL=http://127.0.0.1:8765/v1 python chat.py -q "c'est quoi une limite ?"
 ```
 
-It echoes back a description of the request it received (message roles, system
-prompt length, context size), which proves retrieval → prompt → HTTP → parsing
-all work. **Its replies are synthetic — never use them to judge teaching
-quality.**
+**Its replies are synthetic — never use them to judge teaching quality.**
 
 ## How the pipeline works
 
@@ -425,6 +457,9 @@ All settings can be set in `.env` or as environment variables (see `.env.example
 | `CHUNK_MAX_CHARS` | `1400` | chunk size ceiling |
 | `CHUNK_MIN_CHARS` | `120` | chunks below this are merged |
 | `TOP_K` | `5` | default number of results |
+| `GEMINI_API_KEY` | *(empty)* | Google AI Studio key for the tutor |
+| `GEMINI_MODEL_NAME` | `gemini-3.8-flash` | Gemini model id |
+| `GEMINI_API_ENDPOINT` | `https://generativelanguage.googleapis.com/v1beta` | generateContent base URL |
 
 ---
 
@@ -437,6 +472,7 @@ test_retrieval.py      three sample queries, prints chunks + metadata
 chat.py                CLI chat loop with the AI tutor
 run_test_conversations.py   runs the 9 scripted conversations -> transcripts/
 check_transcripts.py     audits transcripts/ against the prompt rules -> REVIEW-NOTES.md
+test_gemini_client.py    mock-mode tests for the Gemini request/response mapping
 requirements.txt
 .env.example           copy to .env and fill in the placeholders
 transcripts/           generated: 9 test conversations (.md + .json) + REVIEW-NOTES.md
@@ -465,6 +501,7 @@ tools/
 | `[warn] index was built with … but you are querying it with …` | the embedder changed; re-run `python ingest.py` — scores from two different models are not comparable |
 | slow first `sentence-transformers` run | it downloads the model (~500 MB) once, then caches it |
 | poor relevance | if you are on the `hashing` backend, that is expected — configure real embeddings and rebuild |
-| `[preflight] FAILED` / every transcript says **INCOMPLETE — ChatError** | the chat endpoint is unreachable or the key is wrong — nothing to do with retrieval. Set `CHAT_BASE_URL` / `CHAT_API_KEY` / `CHAT_MODEL` in `.env` to a live OpenAI-compatible endpoint, then re-run `python run_test_conversations.py`; the transcripts are overwritten in place |
-| `chat completion failed after 3 attempt(s) … SSL_ERROR_SYSCALL` | the default relay `chatbotoauth-z3twqyf2.manus.space` is down/decommissioned — point `CHAT_BASE_URL` at your own endpoint |
-| want to check the plumbing without a model | `python tools/mock_chat_server.py --port 8765` then `CHAT_BASE_URL=http://127.0.0.1:8765/v1 python run_test_conversations.py --out /tmp/mock`. Replies are synthetic: a **plumbing** check, never a teaching-quality check |
+| `[preflight] FAILED` / every transcript says **INCOMPLETE — ChatError** | the Gemini endpoint is unreachable or `GEMINI_API_KEY` is wrong — nothing to do with retrieval. Set `GEMINI_API_KEY` / `GEMINI_MODEL_NAME` / `GEMINI_API_ENDPOINT` in `.env`, then re-run `python run_test_conversations.py`; the transcripts are overwritten in place |
+| Gemini `blockReason` / `finishReason=SAFETY` on an SVT question | default safety filters can flag biology/reproduction. The client already sends educational `safetySettings`; if it still blocks, try another `GEMINI_MODEL_NAME` or inspect the error |
+| want to check the plumbing without a model | `python test_gemini_client.py` (mock Gemini request/response). Replies are synthetic: a **plumbing** check, never a teaching-quality check |
+nthetic: a **plumbing** check, never a teaching-quality check |

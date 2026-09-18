@@ -113,16 +113,28 @@ class Config:
     # How many candidates to fetch before trimming/diversifying.
     retrieval_fetch_multiplier: int = field(default_factory=lambda: int(_env("RETRIEVAL_FETCH_MULTIPLIER", "4")))
 
-    # --- chat / LLM (step 2) -------------------------------------------------
-    # Any OpenAI-compatible /v1/chat/completions endpoint.
-    chat_base_url: str = field(default_factory=lambda: _env(
-        "CHAT_BASE_URL",
-        "https://chatbotoauth-z3twqyf2.manus.space/v1"))
-    chat_api_key: str = field(default_factory=lambda: _env("CHAT_API_KEY", "[CHAT_API_KEY_HERE]"))
-    chat_model: str = field(default_factory=lambda: _env("CHAT_MODEL", "gpt-5.6-luna"))
+    # --- chat / LLM (step 2) — Gemini generateContent -----------------------
+    # GEMINI_* are the live variables. The ChatClient still reads the
+    # historical names (chat_base_url / chat_api_key / chat_model) so
+    # retrieval, prompts and the darija retry loop do not need to change.
+    chat_base_url: str = field(default_factory=lambda: (
+        _env("GEMINI_API_ENDPOINT")
+        or _env("CHAT_BASE_URL")
+        or "https://generativelanguage.googleapis.com/v1beta"
+    ))
+    chat_api_key: str = field(default_factory=lambda: (
+        _env("GEMINI_API_KEY")
+        or _env("CHAT_API_KEY")
+        or ""
+    ))
+    chat_model: str = field(default_factory=lambda: (
+        _env("GEMINI_MODEL_NAME")
+        or _env("CHAT_MODEL")
+        or "gemini-3.8-flash"
+    ))
     chat_temperature: float = field(default_factory=lambda: float(_env("CHAT_TEMPERATURE", "0.7")))
     chat_max_tokens: int | None = field(default_factory=lambda: (
-        int(t) if (t := _env("CHAT_MAX_TOKENS")) else None
+        int(t) if (t := _env("CHAT_MAX_TOKENS") or _env("GEMINI_MAX_OUTPUT_TOKENS")) else None
     ))
     # How many chunks to ground a chat answer on (more than for bare retrieval,
     # because the tutor needs enough material to build a step-by-step answer).

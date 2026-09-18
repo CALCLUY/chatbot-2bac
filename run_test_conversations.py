@@ -483,7 +483,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     if DEFAULT_CONFIG.chat_key_is_placeholder():
-        print("CHAT_API_KEY is not set. Copy .env.example to .env and fill it in.")
+        print("GEMINI_API_KEY is not set. Copy .env.example to .env and paste "
+              "your Google AI Studio key on the GEMINI_API_KEY= line.")
         return 1
 
     if not args.skip_preflight:
@@ -492,10 +493,10 @@ def main(argv=None) -> int:
             print(f"[preflight] OK — {message}")
         else:
             print(f"[preflight] FAILED — {message}")
-            print(f"[preflight]   CHAT_BASE_URL = {DEFAULT_CONFIG.chat_base_url}")
-            print(f"[preflight]   CHAT_MODEL    = {DEFAULT_CONFIG.chat_model}")
-            print("[preflight] Set a reachable OpenAI-compatible endpoint in .env "
-                  "(CHAT_BASE_URL / CHAT_API_KEY / CHAT_MODEL).")
+            print(f"[preflight]   GEMINI_API_ENDPOINT = {DEFAULT_CONFIG.chat_base_url}")
+            print(f"[preflight]   GEMINI_MODEL_NAME   = {DEFAULT_CONFIG.chat_model}")
+            print("[preflight] Set GEMINI_API_KEY / GEMINI_MODEL_NAME / "
+                  "GEMINI_API_ENDPOINT in .env.")
             if args.require_live:
                 print("[preflight] --require-live given, aborting. Nothing was written.")
                 return 1

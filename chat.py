@@ -643,12 +643,13 @@ def main(argv=None) -> int:
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--no-sources", action="store_true", help="hide the sources block")
     parser.add_argument("--save", type=Path, default=None, help="write the transcript to this JSON file")
-    parser.add_argument("--model", default=None, help="override CHAT_MODEL")
+    parser.add_argument("--model", default=None, help="override GEMINI_MODEL_NAME")
     args = parser.parse_args(argv)
 
     if DEFAULT_CONFIG.chat_key_is_placeholder():
-        print("CHAT_API_KEY is not set. Copy .env.example to .env and fill it in "
-              "(or export CHAT_API_KEY=...).")
+        print("GEMINI_API_KEY is not set. Copy .env.example to .env and paste "
+              "your Google AI Studio key on the GEMINI_API_KEY= line "
+              "(or export GEMINI_API_KEY=...).")
         return 1
 
     session = TutorSession(verbose=True)

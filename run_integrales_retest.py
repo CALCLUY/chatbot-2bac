@@ -102,7 +102,7 @@ def _save(run: int, payload: dict) -> Path:
 
 def _try_live() -> tuple[bool, str]:
     if DEFAULT_CONFIG.chat_key_is_placeholder():
-        return False, "CHAT_API_KEY is not set"
+        return False, "GEMINI_API_KEY is not set"
     client = ChatClient(timeout=20, max_retries=0)
     try:
         client.complete([{"role": "user", "content": "ping"}])

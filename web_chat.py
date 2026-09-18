@@ -227,7 +227,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if DEFAULT_CONFIG.chat_key_is_placeholder():
-        print("WARNING: CHAT_API_KEY is not set; 'API réelle' mode will fail. "
+        print("WARNING: GEMINI_API_KEY is not set; 'API réelle' mode will fail. "
               "Use 'Mock' mode, or fill in .env.", file=sys.stderr)
 
     print("loading index + embedder ...", file=sys.stderr)
