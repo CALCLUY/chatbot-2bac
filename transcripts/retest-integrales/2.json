@@ -1,0 +1,77 @@
+{
+  "run": 2,
+  "mode": "scripted-safeguard",
+  "model": "scripted-retest",
+  "generated_at": "2026-09-18T13:53:43",
+  "question": "chra7 liya les integrales",
+  "answer": "Daba khalini nchra7lek ghir l'idée l'lola, bla calcul. L'intégrale, hia bhal tjm3 l'massafa mlli nta katmchi, 7it la dérivée kat3tik ghir la vitesse f wahd l'lehda. Wach mchat m3ak had l'image, ola bghiti nzid nfesser?",
+  "darija_check": {
+    "min_markers": 2,
+    "attempt": 2,
+    "retried": true,
+    "markers": [
+      "wach",
+      "daba",
+      "bghiti",
+      "bla",
+      "nta",
+      "7it",
+      "ola",
+      "ghir",
+      "bhal",
+      "wahd"
+    ],
+    "issues": [],
+    "reasons": [],
+    "n_sentences": 3,
+    "n_latex": 0,
+    "outcome": "retry_passed",
+    "first_markers": [
+      "daba",
+      "3la"
+    ],
+    "first_issues": [
+      "markdown_formatting",
+      "too_many_latex_blocks",
+      "too_many_sentences",
+      "darija_only_at_end",
+      "darija_as_footnote"
+    ],
+    "first_reasons": [
+      "markdown headers, bold, 3 list items",
+      "8 LaTeX blocks (max 2)",
+      "10 sentences (max ~5)",
+      "all darija markers sit in the last 20% of the text",
+      "explicit 'En darija :' / translation-footnote label"
+    ],
+    "first_answer": "### Primitive et intégrale\n\nUne fonction **F** est une primitive de $f$ si $F'(x) = f(x)$.\n\nL'intégrale indéfinie s'écrit :\n\n$$\\int f(x)\\,dx = F(x) + C$$\n\n### Exemple travaillé\n\nCalculons $\\int 2x\\,dx$.\n\n1. On cherche une primitive $F$ telle que $F'(x) = 2x$.\n2. On trouve $F(x) = x^2$.\n3. Donc $\\int 2x\\,dx = x^2 + C$.\n\nEn darija : daba l'intégrale katqelleb 3la fonction li dérivée dyalha hiya f(x).\n",
+    "reminder": "Ta réponse précédente était trop longue, trop formatée comme un document, et/ou la darija était ajoutée seulement à la fin. Recommence : parle directement en mélange darija-français dès la première phrase, sans titres ni gras, en une seule petite idée."
+  },
+  "error": null,
+  "confirm": {
+    "no_markdown": true,
+    "darija_from_first_sentence": true,
+    "within_chunking_limit": true,
+    "n_sentences": 3,
+    "n_latex": 0,
+    "markers": [
+      "wach",
+      "daba",
+      "bghiti",
+      "bla",
+      "nta",
+      "7it",
+      "ola",
+      "ghir",
+      "bhal",
+      "wahd"
+    ],
+    "issues": [],
+    "should_retry": false,
+    "first_sentence": "Daba khalini nchra7lek ghir l'idée l'lola, bla calcul."
+  },
+  "retry_reminder_sent": true,
+  "n_llm_calls": 2,
+  "system_prompt_has_interdiction": true,
+  "old_check_would_have_accepted_first_draft": true
+}

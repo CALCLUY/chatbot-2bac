@@ -2,7 +2,9 @@ name: Deploy chatbot to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - arena/01a0b4c3-chatbot-2bac
   workflow_dispatch:
 
 permissions:
@@ -11,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

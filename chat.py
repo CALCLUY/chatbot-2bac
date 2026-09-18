@@ -22,14 +22,21 @@ The tutor's system prompt lives in ``rag/prompts.py`` -- edit it there.
 Every answer is followed by the sources it was grounded on, for your own
 verification (real students will not see that block).
 
-Anti-drift safeguard (darija check)
-    The model tends to drift back to pure formal French on long
-    conversations. Every generated answer is therefore scanned for darija
-    markers (DARIJA_MARKERS); if fewer than the minimum (CHAT_DARIJA_MIN_MARKERS,
-    default 2) distinct markers are found, the completion is retried ONCE
-    with an explicit darija reminder appended. Each retry is logged to the
-    console and to logs/darija_retry_log.jsonl so you can measure how often
-    the model drifts and whether the retry fixes it.
+Anti-drift / anti-document safeguard
+    The model tends to (a) drift back to pure formal French and (b) answer
+    like a textbook (markdown headers, bold terms, stacked formulas) with
+    darija tacked on as a footnote. Every generated answer is scanned for:
+
+    * too few distinct darija markers (CHAT_DARIJA_MIN_MARKERS, default 2)
+    * markdown formatting (headers, bold, numbered/bulleted lists)
+    * more than 2 LaTeX formula blocks
+    * more than ~5 sentences (the prompt cap is 3; 6+ forces a retry)
+    * darija markers appearing only in the last 20% of the text
+      (translation-at-the-end pattern)
+
+    On any of those, the completion is retried ONCE with an explicit
+    spoken-darija reminder. Each retry is logged to the console and to
+    logs/darija_retry_log.jsonl (override: CHAT_DARIJA_RETRY_LOG).
 """
 
 from __future__ import annotations
@@ -133,9 +140,35 @@ DARIJA_RETRY_REMINDER = (
     "instructions."
 )
 
+# Used when the answer looks like a document, is too long, or tacks darija
+# on only at the end (the "En darija : ..." anti-pattern).
+RESPONSE_RETRY_REMINDER = (
+    "Ta réponse précédente était trop longue, trop formatée comme un document, "
+    "et/ou la darija était ajoutée seulement à la fin. Recommence : parle "
+    "directement en mélange darija-français dès la première phrase, sans titres "
+    "ni gras, en une seule petite idée."
+)
+
 DARIJA_RETRY_LOG = Path(
     os.getenv("CHAT_DARIJA_RETRY_LOG", str(REPO_ROOT / "logs" / "darija_retry_log.jsonl"))
 )
+
+# Pedagogical cap in the system prompt is 3 sentences. We retry when the
+# answer is clearly past "about 4-5 sentences" so a slightly long spoken
+# turn does not loop, but a textbook dump does.
+MAX_SENTENCES_BEFORE_RETRY = 5
+MAX_LATEX_BLOCKS_BEFORE_RETRY = 2
+DARIJA_TAIL_RATIO = 0.20
+DARIJA_TAIL_MIN_CHARS = 200  # skip the tail-only check on very short replies
+
+_HEADER_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+\S")
+_BOLD_RE = re.compile(r"\*\*[^*\n]{1,200}\*\*|__[^_\n]{1,200}__")
+_LIST_ITEM_RE = re.compile(r"(?m)^\s{0,3}(?:[-*+]\s+\S|\d+[.)]\s+\S)")
+_DARIJA_FOOTNOTE_RE = re.compile(
+    r"(?i)\b(?:en\s+darija\s*[:\-—–]|traduction\s+darija|en\s+dialecte\s*:)"
+)
+_DISPLAY_LATEX_RE = re.compile(r"\$\$.+?\$\$", re.S)
+_INLINE_LATEX_RE = re.compile(r"\$(?!\$)[^$\n]+\$")
 
 
 def darija_min_markers() -> int:
@@ -158,6 +191,158 @@ def find_darija_markers(text: str) -> list[str]:
     return [m for m, rx in _DARIJA_MARKER_RES.items() if rx.search(lowered)]
 
 
+def find_darija_marker_positions(text: str) -> list[int]:
+    """Character offsets of every darija-marker match in *text* (lowercased)."""
+    if not text:
+        return []
+    lowered = text.lower()
+    positions: list[int] = []
+    for rx in _DARIJA_MARKER_RES.values():
+        positions.extend(m.start() for m in rx.finditer(lowered))
+    return sorted(positions)
+
+
+def count_latex_blocks(text: str) -> int:
+    """Count ``$$...$$`` display blocks plus leftover ``$...$`` inline formulas."""
+    if not text:
+        return 0
+    n_display = len(_DISPLAY_LATEX_RE.findall(text))
+    remainder = _DISPLAY_LATEX_RE.sub("", text)
+    n_inline = len(_INLINE_LATEX_RE.findall(remainder))
+    return n_display + n_inline
+
+
+def count_prose_sentences(text: str) -> int:
+    """Count spoken sentences, treating headings and list items as sentences.
+
+    A bulleted dump of ideas is exactly the over-explaining the prompt
+    forbids, so list rows count even without a period.
+    """
+    if not text:
+        return 0
+    body = _DISPLAY_LATEX_RE.sub(" MATH ", text)
+    body = _INLINE_LATEX_RE.sub(" MATH ", body)
+    body = re.sub(r"\[Source \d+\]", " ", body)
+    body = re.sub(r"^\s*(#{1,6}|[*+-]|\d+[.)])\s*", "\n", body, flags=re.M)
+    body = body.replace("**", "").replace("__", "").replace("`", "")
+
+    segments: list[str] = []
+    for raw_line in body.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+        protected = re.sub(r"(\d)\.(\d)", r"\1<DOT>\2", line)
+        protected = re.sub(r"\b(etc|cf|ex|env|vs|M|N)\.", r"\1<DOT>", protected)
+        parts = re.split(r"(?<=[.!?…])\s+", protected)
+        for part in parts:
+            piece = part.replace("<DOT>", ".").strip(" \t-*•")
+            if len(piece) >= 2:
+                segments.append(piece)
+    return len(segments)
+
+
+def has_markdown_formatting(text: str) -> bool:
+    """True when the answer is structured like a document, not spoken."""
+    if not text:
+        return False
+    if _HEADER_RE.search(text):
+        return True
+    if _BOLD_RE.search(text):
+        return True
+    if len(_LIST_ITEM_RE.findall(text)) >= 2:
+        return True
+    return False
+
+
+def darija_only_in_tail(text: str, tail_ratio: float = DARIJA_TAIL_RATIO) -> bool:
+    """True when every darija marker sits in the last *tail_ratio* of *text*.
+
+    A short spoken reply can legitimately put its last darija word near the
+    end, so the check is skipped under DARIJA_TAIL_MIN_CHARS. No markers at
+    all is a different issue (too_few_darija_markers).
+    """
+    if not text or len(text) < DARIJA_TAIL_MIN_CHARS:
+        return False
+    positions = find_darija_marker_positions(text)
+    if not positions:
+        return False
+    cutoff = int(len(text) * (1.0 - tail_ratio))
+    return all(pos >= cutoff for pos in positions)
+
+
+def retry_reminder_for(issues: Sequence[str]) -> str:
+    """Pick the reminder that matches why the first draft was rejected."""
+    documentish = {
+        "markdown_formatting",
+        "too_many_latex_blocks",
+        "too_many_sentences",
+        "darija_only_at_end",
+        "darija_as_footnote",
+    }
+    if documentish.intersection(issues):
+        return RESPONSE_RETRY_REMINDER
+    return DARIJA_RETRY_REMINDER
+
+
+def assess_response(text: str, min_markers: int | None = None) -> dict:
+    """Return a structured quality verdict for one tutor reply.
+
+    ``issues`` is the list of trigger codes; any non-empty list means retry.
+    """
+    if min_markers is None:
+        min_markers = darija_min_markers()
+    text = text or ""
+    markers = find_darija_markers(text)
+    n_sentences = count_prose_sentences(text)
+    n_latex = count_latex_blocks(text)
+    issues: list[str] = []
+    reasons: list[str] = []
+
+    if len(markers) < min_markers:
+        issues.append("too_few_darija_markers")
+        reasons.append(
+            f"{len(markers)} darija marker(s) {markers or '[]'} "
+            f"(minimum {min_markers})"
+        )
+
+    if has_markdown_formatting(text):
+        issues.append("markdown_formatting")
+        bits = []
+        if _HEADER_RE.search(text):
+            bits.append("headers")
+        if _BOLD_RE.search(text):
+            bits.append("bold")
+        n_lists = len(_LIST_ITEM_RE.findall(text))
+        if n_lists >= 2:
+            bits.append(f"{n_lists} list items")
+        reasons.append("markdown " + ", ".join(bits) if bits else "markdown")
+
+    if n_latex > MAX_LATEX_BLOCKS_BEFORE_RETRY:
+        issues.append("too_many_latex_blocks")
+        reasons.append(f"{n_latex} LaTeX blocks (max {MAX_LATEX_BLOCKS_BEFORE_RETRY})")
+
+    if n_sentences > MAX_SENTENCES_BEFORE_RETRY:
+        issues.append("too_many_sentences")
+        reasons.append(f"{n_sentences} sentences (max ~{MAX_SENTENCES_BEFORE_RETRY})")
+
+    if darija_only_in_tail(text):
+        issues.append("darija_only_at_end")
+        reasons.append(f"all darija markers sit in the last {int(DARIJA_TAIL_RATIO * 100)}% of the text")
+
+    if _DARIJA_FOOTNOTE_RE.search(text):
+        issues.append("darija_as_footnote")
+        reasons.append("explicit 'En darija :' / translation-footnote label")
+
+    return {
+        "markers": markers,
+        "issues": issues,
+        "reasons": reasons,
+        "n_sentences": n_sentences,
+        "n_latex": n_latex,
+        "should_retry": bool(issues),
+    }
+
+
 def log_darija_retry(record: dict) -> None:
     """Log one retry event: JSONL line (for stats) + console line (visible)."""
     line = {"at": datetime.now().isoformat(timespec="seconds"), **record}
@@ -168,10 +353,23 @@ def log_darija_retry(record: dict) -> None:
     except OSError as exc:  # logging must never break the conversation
         print(f"  [darija-check] warning — could not write retry log: {exc}")
     first = record.get("first_markers", [])
-    print(f"  [darija-check] R1 trop formelle ({len(first)} marker(s) darija : "
-          f"{', '.join(first) if first else 'aucun'} — minimum "
-          f"{record.get('min_markers', darija_min_markers())}) "
-          f"→ re-génération avec rappel")
+    issues = record.get("first_issues") or record.get("issues") or []
+    issue_txt = ", ".join(issues) if issues else "trop formelle"
+    outcome = record.get("outcome")
+    if outcome == "retry_api_error_fallback":
+        print(f"  [darija-check] retry API error — keeping first answer ({record.get('error', '')})")
+    elif outcome in ("retry_passed", "retry_still_failed"):
+        second = record.get("second_markers", [])
+        second_issues = record.get("second_issues") or []
+        print(f"  [darija-check] R2 {outcome} "
+              f"({len(second)} marker(s)"
+              f"{'; leftover issues: ' + ', '.join(second_issues) if second_issues else ''})")
+    else:
+        print(f"  [darija-check] R1 rejected ({issue_txt}; "
+              f"{len(first)} marker(s) darija : "
+              f"{', '.join(first) if first else 'aucun'} — minimum "
+              f"{record.get('min_markers', darija_min_markers())}) "
+              f"→ re-génération avec rappel")
 
 
 def build_retrieval_query(question: str, history: Sequence[dict]) -> str:
@@ -229,39 +427,52 @@ class TutorSession:
         """Answer one student question. Returns a dict with answer + sources.
 
         Includes a ``darija_check`` field: how many darija markers the answer
-        contained and whether the anti-drift retry was triggered (see
-        DARIJA_MARKERS above).
+        contained, which quality issues fired (markdown / length / latex /
+        darija-only-at-the-end), and whether the retry was triggered.
         """
         hits, messages = self.prepare(question, matiere=matiere, chapitre=chapitre, top_k=top_k)
         min_markers = darija_min_markers()
         turn_index = sum(1 for t in self.history if t["role"] == "user") + 1
 
         answer = self.client.complete(messages).content
-        first_markers = find_darija_markers(answer)
+        first = assess_response(answer, min_markers=min_markers)
         darija_check: dict = {
             "min_markers": min_markers,
             "attempt": 1,
             "retried": False,
-            "markers": first_markers,
+            "markers": first["markers"],
+            "issues": first["issues"],
+            "reasons": first["reasons"],
+            "n_sentences": first["n_sentences"],
+            "n_latex": first["n_latex"],
             "outcome": "ok",
         }
 
-        if len(first_markers) < min_markers:
-            # --- anti-drift safeguard: the answer is (almost) pure French ---
+        if first["should_retry"]:
+            reminder = retry_reminder_for(first["issues"])
             log_darija_retry({
                 "model": self.client.model,
                 "turn_index": turn_index,
                 "question_preview": question[:120],
                 "min_markers": min_markers,
-                "first_markers": first_markers,
+                "first_markers": first["markers"],
+                "first_issues": first["issues"],
+                "first_reasons": first["reasons"],
+                "n_sentences": first["n_sentences"],
+                "n_latex": first["n_latex"],
+                "reminder": reminder,
             })
             darija_check["retried"] = True
-            darija_check["first_markers"] = first_markers
+            darija_check["first_markers"] = first["markers"]
+            darija_check["first_issues"] = first["issues"]
+            darija_check["first_reasons"] = first["reasons"]
+            darija_check["first_answer"] = answer
+            darija_check["reminder"] = reminder
             # The reminder refers to the model's OWN last reply, so the failed
             # answer is replayed to it as an assistant turn first.
             retry_messages = messages + [
                 {"role": "assistant", "content": answer},
-                {"role": "user", "content": DARIJA_RETRY_REMINDER},
+                {"role": "user", "content": reminder},
             ]
             try:
                 answer = self.client.complete(retry_messages).content
@@ -274,22 +485,30 @@ class TutorSession:
                     "model": self.client.model,
                     "turn_index": turn_index,
                     "question_preview": question[:120],
+                    "first_issues": first["issues"],
                     "outcome": "retry_api_error_fallback",
                     "error": str(exc),
                 })
             else:
-                from_markers = find_darija_markers(answer)
+                second = assess_response(answer, min_markers=min_markers)
                 darija_check["attempt"] = 2
-                darija_check["markers"] = from_markers
+                darija_check["markers"] = second["markers"]
+                darija_check["issues"] = second["issues"]
+                darija_check["reasons"] = second["reasons"]
+                darija_check["n_sentences"] = second["n_sentences"]
+                darija_check["n_latex"] = second["n_latex"]
                 darija_check["outcome"] = ("retry_passed"
-                                           if len(from_markers) >= min_markers
+                                           if not second["should_retry"]
                                            else "retry_still_failed")
                 log_darija_retry({
                     "model": self.client.model,
                     "turn_index": turn_index,
                     "question_preview": question[:120],
-                    "first_markers": first_markers,
-                    "second_markers": from_markers,
+                    "first_markers": first["markers"],
+                    "first_issues": first["issues"],
+                    "second_markers": second["markers"],
+                    "second_issues": second["issues"],
+                    "second_reasons": second["reasons"],
                     "outcome": darija_check["outcome"],
                 })
 

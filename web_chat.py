@@ -183,6 +183,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         error = None
+        darija_check = None
         if use_mock:
             answer = mock_reply({"messages": messages, "model": DEFAULT_CONFIG.chat_model,
                                  "temperature": DEFAULT_CONFIG.chat_temperature})
@@ -190,9 +191,14 @@ class Handler(BaseHTTPRequestHandler):
             SESSION.history.append({"role": "assistant", "content": answer})
         else:
             try:
-                answer = SESSION.client.complete(messages).content
-                SESSION.history.append({"role": "user", "content": message})
-                SESSION.history.append({"role": "assistant", "content": answer})
+                # Use ask() so the darija/document retry safeguard runs; it
+                # will retrieve again, so restore the browser-owned history
+                # first (ask() appends the new turn itself).
+                result = SESSION.ask(message, matiere=matiere, chapitre=chapitre)
+                answer = result["answer"]
+                darija_check = result.get("darija_check")
+                hits = result.get("sources") or hits
+                messages = result.get("messages") or messages
             except ChatError as exc:
                 answer, error = "", self._explain_chat_error(exc)
 
@@ -200,6 +206,7 @@ class Handler(BaseHTTPRequestHandler):
             "answer": answer,
             "error": error,
             "mock": use_mock,
+            "darija_check": darija_check,
             "sources": _sources_payload(hits),
             "prompt": {
                 "system_chars": len(SYSTEM_PROMPT),

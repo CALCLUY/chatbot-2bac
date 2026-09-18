@@ -382,20 +382,24 @@ def render_darija_check_md(check: dict | None) -> list[str]:
     """One line under a prof answer describing the darija-marker check."""
     if not check:
         return []
+    issues = check.get("first_issues") or check.get("issues") or []
+    issue_txt = f" ; issues={issues}" if issues else ""
     if not check.get("retried"):
         return [f"_(darija-check : {len(check.get('markers', []))} marker(s) darija — "
-                f"OK, pas de retry)_", ""]
+                f"OK, pas de retry{issue_txt})_", ""]
     first = check.get("first_markers", [])
     first_names = "(" + ", ".join(first) + ")" if first else "aucun"
     if check.get("outcome") == "retry_api_error_fallback":
-        return [f"_(darija-check : {len(first)} marker(s) — retry déclenché, mais l'appel "
+        return [f"_(darija-check : {len(first)} marker(s){issue_txt} — retry déclenché, mais l'appel "
                 f"de re-génération a échoué → réponse 1 conservée)_", ""]
     second = check.get("markers", [])
+    second_issues = check.get("issues") or []
     verdict = {"retry_passed": "retry corrigé ✅",
-               "retry_still_failed": "retry ÉCHOUÉ (toujours < minimum) ⚠️"}.get(
+               "retry_still_failed": "retry ÉCHOUÉ (qualité encore insuffisante) ⚠️"}.get(
                    check.get("outcome", ""), "retry déclenché")
-    return [f"_(darija-check : {len(first)} marker(s) au 1er essai {first_names} "
-            f"→ **RETRY DÉCLENCHÉ** — 2e essai : {len(second)} marker(s), {verdict})_", ""]
+    return [f"_(darija-check : {len(first)} marker(s) au 1er essai {first_names}{issue_txt} "
+            f"→ **RETRY DÉCLENCHÉ** — 2e essai : {len(second)} marker(s)"
+            f"{', issues=' + str(second_issues) if second_issues else ''}, {verdict})_", ""]
 
 
 def darija_stats(records: list[dict]) -> str:
