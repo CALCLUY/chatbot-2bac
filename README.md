@@ -255,6 +255,13 @@ endpoint. Copy `.env.example` to `.env` and paste a real key:
 Do **not** put the key in source code. `.env.example` ships with an empty
 `GEMINI_API_KEY=`.
 
+For the GitHub Pages chatbot, add the same key as a **repository secret**
+named `GEMINI_API_KEY` (Settings → Secrets and variables → Actions). Optional
+repository **variables**: `GEMINI_MODEL_NAME`, `GEMINI_API_ENDPOINT`. The
+deploy workflow injects the secret into `web/index.html` at build time. This
+environment’s GitHub token cannot create secrets (403) — you have to paste
+the key in the GitHub UI.
+
 | Variable | Default |
 |---|---|
 | `GEMINI_API_KEY` | *(empty — paste your key here)* |
